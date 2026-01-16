@@ -1,0 +1,131 @@
+"""
+Hex-Mathematik Funktionen
+Implementiert das odd-r offset System aus dem Godot-Projekt
+"""
+import math
+from typing import Tuple, List
+
+
+class HexMath:
+    """Hex-Koordinaten Mathematik"""
+    
+    @staticmethod
+    def get_hex_neighbors(x: int, y: int) -> List[Tuple[int, int]]:
+        """
+        Hex-Nachbarn für odd-r offset System
+        
+        Args:
+            x: X-Koordinate
+            y: Y-Koordinate
+            
+        Returns:
+            Liste der Nachbar-Koordinaten
+        """
+        # Ensure x and y are integers
+        x = int(x)
+        y = int(y)
+        
+        odd = (y & 1) == 1
+        
+        if odd:
+            return [
+                (x - 1, y), (x + 1, y),      # links, rechts
+                (x, y - 1), (x + 1, y - 1),  # oben-links, oben-rechts
+                (x, y + 1), (x + 1, y + 1),  # unten-links, unten-rechts
+            ]
+        else:
+            return [
+                (x - 1, y), (x + 1, y),      # links, rechts
+                (x - 1, y - 1), (x, y - 1),  # oben-links, oben-rechts
+                (x - 1, y + 1), (x, y + 1),  # unten-links, unten-rechts
+            ]
+    
+    @staticmethod
+    def hex_to_pixel(x: int, y: int, hex_size: float = 20.0) -> Tuple[float, float]:
+        """
+        Konvertiert Hex-Koordinaten zu Pixel-Koordinaten (odd-r offset)
+        
+        Args:
+            x: Hex X-Koordinate
+            y: Hex Y-Koordinate
+            hex_size: Größe der Hexagone
+            
+        Returns:
+            (pixel_x, pixel_y) Tuple
+        """
+        # Ensure x and y are integers
+        x = int(x)
+        y = int(y)
+        
+        # odd-r offset layout
+        pixel_x = hex_size * (3.0 / 2.0) * x
+        pixel_y = hex_size * math.sqrt(3.0) * (y + 0.5 * (x & 1))
+        
+        return pixel_x, pixel_y
+    
+    @staticmethod
+    def pixel_to_hex(pixel_x: float, pixel_y: float, hex_size: float = 20.0) -> Tuple[int, int]:
+        """
+        Konvertiert Pixel-Koordinaten zu Hex-Koordinaten
+        
+        Args:
+            pixel_x: Pixel X-Position
+            pixel_y: Pixel Y-Position
+            hex_size: Größe der Hexagone
+            
+        Returns:
+            (hex_x, hex_y) Tuple
+        """
+        # Vereinfachte Näherung für odd-r
+        q = (pixel_x * 2.0/3.0) / hex_size
+        r = (-pixel_x / 3.0 + math.sqrt(3.0)/3.0 * pixel_y) / hex_size
+        
+        hex_x = round(q)
+        hex_y = round(r + 0.5 * (hex_x & 1))
+        
+        return hex_x, hex_y
+    
+    @staticmethod
+    def get_hex_vertices(center_x: float, center_y: float, hex_size: float) -> List[Tuple[float, float]]:
+        """
+        Berechnet die 6 Eckpunkte eines Hexagons
+        
+        Args:
+            center_x: Zentrum X
+            center_y: Zentrum Y
+            hex_size: Größe des Hexagons
+            
+        Returns:
+            Liste von 6 Eckpunkten
+        """
+        vertices = []
+        for i in range(6):
+            angle = math.pi / 3.0 * i  # 60 Grad Schritte
+            vertex_x = center_x + hex_size * math.cos(angle)
+            vertex_y = center_y + hex_size * math.sin(angle)
+            vertices.append((vertex_x, vertex_y))
+        return vertices
+    
+    @staticmethod
+    def hex_distance(x1: int, y1: int, x2: int, y2: int) -> int:
+        """
+        Berechnet die Distanz zwischen zwei Hex-Koordinaten
+        
+        Args:
+            x1, y1: Erste Koordinate
+            x2, y2: Zweite Koordinate
+            
+        Returns:
+            Hex-Distanz
+        """
+        # Konvertiere zu cube coordinates für einfachere Distanz-Berechnung
+        def offset_to_cube(col: int, row: int) -> Tuple[int, int, int]:
+            q = col
+            r = row - (col + (col & 1)) // 2
+            s = -q - r
+            return q, r, s
+        
+        q1, r1, s1 = offset_to_cube(x1, y1)
+        q2, r2, s2 = offset_to_cube(x2, y2)
+        
+        return (abs(q1 - q2) + abs(r1 - r2) + abs(s1 - s2)) // 2
