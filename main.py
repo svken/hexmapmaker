@@ -140,9 +140,38 @@ class HexMapEditor:
         self.terrain_combo.pack(fill=tk.X)
         self.terrain_combo.bind('<<ComboboxSelected>>', self._on_terrain_selected)
         
-        # Map Canvas (rechts)
+        # Map Canvas (mitte)
         canvas_frame = ttk.LabelFrame(main_frame, text="Map View")
-        canvas_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        # Properties Panel (rechts)
+        props_frame = ttk.LabelFrame(main_frame, text="Tile Properties", width=250)
+        props_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        props_frame.pack_propagate(False)
+        
+        # Scrollable Text Widget für Properties
+        props_text_frame = ttk.Frame(props_frame)
+        props_text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Text Widget mit Scrollbar
+        self.props_text = tk.Text(
+            props_text_frame,
+            wrap=tk.WORD,
+            width=30,
+            height=20,
+            font=("Courier", 9),
+            bg="#f0f0f0",
+            state=tk.DISABLED
+        )
+        
+        props_scrollbar = ttk.Scrollbar(props_text_frame, orient=tk.VERTICAL, command=self.props_text.yview)
+        self.props_text.config(yscrollcommand=props_scrollbar.set)
+        
+        self.props_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        props_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Initial Text
+        self._update_properties_panel(None)
         
         # Map Canvas erstellen
         self.map_canvas = MapCanvas(canvas_frame, self.grid_manager)
@@ -243,6 +272,9 @@ Kommende Features:
             coords_text = ""
         
         self.coords_label.config(text=coords_text)
+        
+        # Update Properties Panel
+        self._update_properties_panel(tile)
     
     def _on_tile_click(self, tile):
         """Wird aufgerufen wenn Tile geklickt wird"""
@@ -316,6 +348,68 @@ Kommende Features:
         terrain_name = tile.area.display_name if tile.area else "Unknown"
         coords_text = f"Painted {terrain_name} at ({tile.coordinates[0]}, {tile.coordinates[1]})"
         self.status_label.config(text=coords_text)
+    
+    def _update_properties_panel(self, tile):
+        """Aktualisiert das Properties Panel mit Tile-Informationen"""
+        self.props_text.config(state=tk.NORMAL)
+        self.props_text.delete(1.0, tk.END)
+        
+        if tile is None:
+            self.props_text.insert(tk.END, "Hover over a tile to see its properties")
+        else:
+            # Formatiere alle Tile-Attribute
+            props_text = f"""TILE PROPERTIES
+{'=' * 30}
+
+Coordinates: ({tile.coordinates[0]}, {tile.coordinates[1]})
+
+TERRAIN:
+Area: {tile.area.display_name if tile.area else 'None'}
+Area ID: {tile.area.id if tile.area else 'None'}
+Is Land: {tile.is_land}
+
+TERRAIN STATS:
+Move Cost: {tile.area.move_cost if tile.area else 'N/A'}
+Attack Mult: {tile.area.attack_mult if tile.area else 'N/A'}
+Defense Mult: {tile.area.defense_mult if tile.area else 'N/A'}
+
+RESOURCES:
+Resource Type: {tile.resource.value}
+Resource Count: {tile.resource_count:.1f}
+Regen Rate: {tile.resource_regeneration_rate:.2f}
+Max Capacity: {tile.max_resource_capacity:.1f}
+
+MILITARY:
+Faction: {tile.faction.value}
+In Battle: {tile.in_battle}
+Front Degree: {tile.front_degree}
+Strength: {tile.strength:.1f}
+Fortification: {tile.fortification_level}
+Garrison Size: {tile.garrison_size}
+
+ENVIRONMENT:
+Elevation: {tile.elevation:.1f}m
+Temperature: {tile.temperature:.1f}°C
+Fertility: {tile.fertility:.2f}
+Accessibility: {tile.accessibility:.2f}
+
+STRUCTURES:
+Structures: {', '.join(tile.structures) if tile.structures else 'None'}
+Population: {tile.population}
+Happiness: {tile.happiness:.1f}%
+
+STRATEGIC:
+Strategic Value: {tile.strategic_value}
+Supply Lines: {len(tile.supply_lines)}
+Visibility: {tile.visibility}
+
+UI:
+Selected: {tile.is_selected}
+Neighbors: {tile.neighbour_tiles}"""
+            
+            self.props_text.insert(tk.END, props_text)
+        
+        self.props_text.config(state=tk.DISABLED)
     
     def run(self):
         """Startet die Anwendung"""
