@@ -94,8 +94,8 @@ class Grid:
     
     def _initialize_tiles(self):
         """Erstelle leere Tiles für das Grid"""
-        plain_area = next(
-            (area for area in self.area_definitions if area.id == "plain"),
+        water_area = next(
+            (area for area in self.area_definitions if area.id == "water"),
             self.area_definitions[0] if self.area_definitions else None
         )
         
@@ -103,7 +103,8 @@ class Grid:
             for x in range(self.width):
                 tile = Tile(
                     coordinates=(x, y),
-                    area=plain_area
+                    area=water_area,
+                    is_land=False  # Wasser ist kein Land
                 )
                 self.tiles.append(tile)
 
