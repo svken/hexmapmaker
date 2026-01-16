@@ -455,6 +455,12 @@ class MapCanvas:
             old_area = tile.area
             tile.area = self.selected_terrain
             
+            # Automatisch is_land basierend auf Terrain-Typ setzen
+            if self.selected_terrain.id == "water":
+                tile.is_land = False
+            else:
+                tile.is_land = True
+            
             # Callback für andere Komponenten
             if self.on_tile_paint:
                 self.on_tile_paint(tile, old_area)
