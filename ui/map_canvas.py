@@ -4,11 +4,12 @@ Zeigt Hex-Grid an mit Zoom und Pan-Funktionalität
 """
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, List
 import math
 
 from data.grid_manager import GridManager
 from data.models import Tile
+from utils.hex_math import HexMath
 from utils.hex_math import HexMath
 
 
@@ -60,6 +61,9 @@ class MapCanvas:
         self.is_faction_painting = False
         self.selected_faction = None
         self.last_faction_painted_tile = None
+        
+        # Brush Size
+        self.brush_size = 1
         
         # Callbacks
         self.on_tile_hover: Optional[Callable[[Optional[Tile]], None]] = None
@@ -324,6 +328,14 @@ class MapCanvas:
         
         return visible_hexes
     
+    def _get_tiles_in_brush(self, center_coord):
+        """Gibt eine Liste von Tile-Koordinaten im Pinsel-Bereich zurück"""
+        if self.brush_size <= 1:
+            return [center_coord]
+        
+        from ..utils.hex_math import get_hex_neighbors_in_radius
+        return get_hex_neighbors_in_radius(center_coord, self.brush_size - 1)
+    
     def _render_hex(self, hex_x: int, hex_y: int, tile: Tile):
         """
         Rendert ein einzelnes Hexagon
@@ -467,39 +479,67 @@ class MapCanvas:
         """Setzt die aktuell ausgewählte Fraktion für das Faction-Paint-Tool"""
         self.selected_faction = faction
     
+    def set_brush_size(self, size: int):
+        """Setzt die Pinselgröße"""
+        self.brush_size = max(1, int(size))
+    
     def _paint_tile(self, tile: Tile):
-        """Malt ein Tile mit dem ausgewählten Terrain"""
-        if self.selected_terrain and tile.area != self.selected_terrain:
-            # Setze das neue Terrain
-            old_area = tile.area
-            tile.area = self.selected_terrain
+        """Malt ein Tile oder Brush Area mit dem ausgewählten Terrain"""
+        if not self.selected_terrain:
+            return
             
-            # Automatisch is_land basierend auf Terrain-Typ setzen
-            if self.selected_terrain.id == "water":
-                tile.is_land = False
-            else:
-                tile.is_land = True
-            
-            # Callback für andere Komponenten
-            if self.on_tile_paint:
-                self.on_tile_paint(tile, old_area)
-            
-            # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
-            self._render_single_hex(tile.coordinates[0], tile.coordinates[1], tile)
+        # Alle Tiles im Brush-Bereich finden
+        tiles_to_paint = self._get_tiles_in_brush(tile.coordinates[0], tile.coordinates[1])
+        painted_tiles = []
+        
+        for hex_x, hex_y in tiles_to_paint:
+            target_tile = self.grid_manager.get_tile_at(hex_x, hex_y)
+            if target_tile and target_tile.area != self.selected_terrain:
+                # Setze das neue Terrain
+                old_area = target_tile.area
+                target_tile.area = self.selected_terrain
+                
+                # Automatisch is_land basierend auf Terrain-Typ setzen
+                if self.selected_terrain.id == "water":
+                    target_tile.is_land = False
+                else:
+                    target_tile.is_land = True
+                
+                painted_tiles.append((target_tile, old_area))
+                
+                # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
+                self._render_single_hex(hex_x, hex_y, target_tile)
+        
+        # Callback für andere Komponenten (mit dem ersten Tile)
+        if painted_tiles and self.on_tile_paint:
+            first_tile, old_area = painted_tiles[0]
+            self.on_tile_paint(first_tile, old_area)
     
     def _paint_faction(self, tile: Tile):
-        """Malt ein Tile mit der ausgewählten Fraktion"""
-        if self.selected_faction and tile.faction != self.selected_faction:
-            # Setze die neue Fraktion
-            old_faction = tile.faction
-            tile.faction = self.selected_faction
+        """Malt ein Tile oder Brush Area mit der ausgewählten Fraktion"""
+        if not self.selected_faction:
+            return
             
-            # Callback für andere Komponenten
-            if self.on_faction_paint:
-                self.on_faction_paint(tile, old_faction)
-            
-            # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
-            self._render_single_hex(tile.coordinates[0], tile.coordinates[1], tile)
+        # Alle Tiles im Brush-Bereich finden
+        tiles_to_paint = self._get_tiles_in_brush(tile.coordinates[0], tile.coordinates[1])
+        painted_tiles = []
+        
+        for hex_x, hex_y in tiles_to_paint:
+            target_tile = self.grid_manager.get_tile_at(hex_x, hex_y)
+            if target_tile and target_tile.faction != self.selected_faction:
+                # Setze die neue Fraktion
+                old_faction = target_tile.faction
+                target_tile.faction = self.selected_faction
+                
+                painted_tiles.append((target_tile, old_faction))
+                
+                # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
+                self._render_single_hex(hex_x, hex_y, target_tile)
+        
+        # Callback für andere Komponenten (mit dem ersten Tile)
+        if painted_tiles and self.on_faction_paint:
+            first_tile, old_faction = painted_tiles[0]
+            self.on_faction_paint(first_tile, old_faction)
     
     def _render_single_hex(self, hex_x: int, hex_y: int, tile: Tile):
         """Rendert ein einzelnes Hex ohne komplettes Re-Render"""
@@ -509,3 +549,10 @@ class MapCanvas:
         
         # Zeichne neues Hex
         self._render_hex(hex_x, hex_y, tile)
+    
+    def _get_tiles_in_brush(self, center_x: int, center_y: int) -> List[Tuple[int, int]]:
+        """Gibt eine Liste von Tile-Koordinaten im Pinsel-Bereich zurück"""
+        if not hasattr(self, 'brush_size') or self.brush_size <= 1:
+            return [(center_x, center_y)]
+        
+        return HexMath.get_hex_neighbors_in_radius(center_x, center_y, self.brush_size - 1)

@@ -37,6 +37,9 @@ class HexMapEditor:
         self.faction_paint_active = tk.BooleanVar()
         self.selected_faction_var = tk.StringVar()
         
+        # Brush Size State
+        self.brush_size = tk.IntVar(value=1)  # Standard: 1 Tile
+        
         # GUI erstellen
         self._create_menu()
         self._create_main_layout()
@@ -100,9 +103,11 @@ class HexMapEditor:
             "\\nPaint Mode:\\n"
             "• Hold Left Mouse: Paint\\n"
             "• Select terrain below\\n"
+            "• Adjust brush size\\n"
             "\\nFaction Mode:\\n"
             "• Hold Left Mouse: Paint\\n"
-            "• Select faction below"
+            "• Select faction below\\n"
+            "• Adjust brush size"
         )
         controls_label = ttk.Label(
             info_frame,
@@ -146,6 +151,25 @@ class HexMapEditor:
             
         self.terrain_combo.pack(fill=tk.X)
         self.terrain_combo.bind('<<ComboboxSelected>>', self._on_terrain_selected)
+        
+        # Brush Size Control
+        brush_size_frame = ttk.Frame(paint_frame)
+        brush_size_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        ttk.Label(brush_size_frame, text="Brush Size:").pack(side=tk.LEFT)
+        
+        self.brush_size_scale = ttk.Scale(
+            brush_size_frame,
+            from_=1,
+            to=5,
+            orient=tk.HORIZONTAL,
+            variable=self.brush_size,
+            command=self._on_brush_size_changed
+        )
+        self.brush_size_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        self.brush_size_label = ttk.Label(brush_size_frame, text="1")
+        self.brush_size_label.pack(side=tk.RIGHT)
         
         # Faction-Paint-Tool Panel
         faction_frame = ttk.LabelFrame(info_frame, text="Faction Tool")
@@ -226,6 +250,7 @@ class HexMapEditor:
         # Initial Terrain und Faction setzen
         self._on_terrain_selected(None)
         self._on_faction_selected(None)
+        self._on_brush_size_changed(1)
         
         # Focus für Keyboard-Input
         self.map_canvas.get_widget().focus_set()
@@ -433,6 +458,14 @@ Kommende Features:
         faction_name = tile.faction.value
         coords_text = f"Painted faction {faction_name} at ({tile.coordinates[0]}, {tile.coordinates[1]})"
         self.status_label.config(text=coords_text)
+    
+    def _on_brush_size_changed(self, value):
+        """Wird aufgerufen wenn sich die Pinselgröße ändert"""
+        brush_size = int(float(value))
+        self.brush_size_label.config(text=str(brush_size))
+        
+        if hasattr(self, 'map_canvas'):
+            self.map_canvas.set_brush_size(brush_size)
     
     def _on_tile_paint(self, tile, old_area):
         """Wird aufgerufen wenn ein Tile gemalt wird"""

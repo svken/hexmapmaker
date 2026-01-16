@@ -10,6 +10,45 @@ class HexMath:
     """Hex-Koordinaten Mathematik"""
     
     @staticmethod
+    def get_hex_neighbors_in_radius(center_x: int, center_y: int, radius: int) -> List[Tuple[int, int]]:
+        """
+        Gibt alle Hex-Tiles in einem bestimmten Radius zurück
+        
+        Args:
+            center_x: Zentrum X-Koordinate
+            center_y: Zentrum Y-Koordinate  
+            radius: Radius (0 = nur Zentrum, 1 = Zentrum + direkte Nachbarn, etc.)
+            
+        Returns:
+            Liste aller Tile-Koordinaten im Radius
+        """
+        center_x = int(center_x)
+        center_y = int(center_y)
+        radius = int(radius)
+        
+        if radius <= 0:
+            return [(center_x, center_y)]
+        
+        tiles = [(center_x, center_y)]
+        visited = {(center_x, center_y)}
+        
+        # Breadth-first search für alle Tiles im Radius
+        current_ring = [(center_x, center_y)]
+        
+        for ring in range(radius):
+            next_ring = []
+            for tile_x, tile_y in current_ring:
+                neighbors = HexMath.get_hex_neighbors(tile_x, tile_y)
+                for neighbor in neighbors:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        tiles.append(neighbor)
+                        next_ring.append(neighbor)
+            current_ring = next_ring
+            
+        return tiles
+    
+    @staticmethod
     def get_hex_neighbors(x: int, y: int) -> List[Tuple[int, int]]:
         """
         Hex-Nachbarn für odd-r offset System
