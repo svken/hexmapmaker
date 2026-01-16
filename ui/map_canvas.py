@@ -267,6 +267,10 @@ class MapCanvas:
         # Sichtbare Hex-Bereiche berechnen
         visible_hexes = self._get_visible_hexes(canvas_width, canvas_height)
         
+        # Performance-Info (nur bei sehr großen Listen)
+        if len(visible_hexes) > 1000:
+            print(f"Rendering {len(visible_hexes)} hexes (large grid optimization active)")
+        
         # Alle sichtbaren Hexagone rendern
         for hex_x, hex_y in visible_hexes:
             tile = self.grid_manager.get_tile_at(hex_x, hex_y)
@@ -278,7 +282,7 @@ class MapCanvas:
     
     def _get_visible_hexes(self, canvas_width: int, canvas_height: int) -> list[Tuple[int, int]]:
         """
-        Berechnet welche Hexagone sichtbar sind
+        Berechnet welche Hexagone sichtbar sind (optimiert für große Grids)
         
         Args:
             canvas_width: Canvas-Breite
@@ -289,24 +293,33 @@ class MapCanvas:
         """
         visible_hexes = []
         
-        # Erweiterten Bereich berechnen für Sicherheit
-        margin = 2
+        # Berechne den sichtbaren Weltbereich
+        world_left = self.view_x
+        world_right = self.view_x + (canvas_width / self.zoom_factor)
+        world_top = self.view_y
+        world_bottom = self.view_y + (canvas_height / self.zoom_factor)
         
-        # Grid-Grenzen
+        # Hex-Größe für Berechnungen
+        hex_world_size = self.hex_size * 1.2  # Etwas Puffer
+        
+        # Grobe Schätzung des sichtbaren Hex-Bereichs
+        # Verwende Hex-Layout Formeln um Grenzen zu finden
+        left_hex_x = int((world_left / (self.hex_size * 3.0 / 2.0)) - 2)
+        right_hex_x = int((world_right / (self.hex_size * 3.0 / 2.0)) + 2)
+        top_hex_y = int((world_top / (self.hex_size * math.sqrt(3.0))) - 2)
+        bottom_hex_y = int((world_bottom / (self.hex_size * math.sqrt(3.0))) + 2)
+        
+        # Grid-Grenzen einhalten
         min_x, min_y, max_x, max_y = self.grid_manager.get_grid_bounds()
+        left_hex_x = max(min_x, left_hex_x)
+        right_hex_x = min(max_x, right_hex_x)
+        top_hex_y = max(min_y, top_hex_y)
+        bottom_hex_y = min(max_y, bottom_hex_y)
         
-        # Alle Tiles im Grid prüfen (für kleine Grids einfacher)
-        for y in range(max(0, min_y - margin), min(max_y + margin + 1, self.grid_manager.grid.height)):
-            for x in range(max(0, min_x - margin), min(max_x + margin + 1, self.grid_manager.grid.width)):
-                # Hex zu Pixel für Sichtbarkeits-Check
-                world_x, world_y = HexMath.hex_to_pixel(x, y, self.hex_size)
-                screen_x = (world_x - self.view_x) * self.zoom_factor
-                screen_y = (world_y - self.view_y) * self.zoom_factor
-                
-                # Check ob auf dem Bildschirm
-                hex_screen_size = self.hex_size * self.zoom_factor
-                if (-hex_screen_size <= screen_x <= canvas_width + hex_screen_size and
-                    -hex_screen_size <= screen_y <= canvas_height + hex_screen_size):
+        # Nur die Tiles im sichtbaren Bereich prüfen (nicht das ganze Grid!)
+        for y in range(top_hex_y, bottom_hex_y + 1):
+            for x in range(left_hex_x, right_hex_x + 1):
+                if 0 <= x < self.grid_manager.grid.width and 0 <= y < self.grid_manager.grid.height:
                     visible_hexes.append((x, y))
         
         return visible_hexes
@@ -386,7 +399,13 @@ class MapCanvas:
     
     def _render_debug_info(self):
         """Rendert Debug-Informationen"""
-        info_text = f"Zoom: {self.zoom_factor:.2f} | Hex Size: {self.hex_size:.1f} | View: ({self.view_x:.1f}, {self.view_y:.1f})"
+        # Berechne sichtbare Tiles für Performance-Info
+        canvas_width = self.canvas.winfo_width() or 800
+        canvas_height = self.canvas.winfo_height() or 600
+        visible_count = len(self._get_visible_hexes(canvas_width, canvas_height))
+        total_tiles = self.grid_manager.grid.width * self.grid_manager.grid.height
+        
+        info_text = f"Zoom: {self.zoom_factor:.2f} | Hex Size: {self.hex_size:.1f} | View: ({self.view_x:.1f}, {self.view_y:.1f})\nVisible: {visible_count}/{total_tiles} tiles"
         self.canvas.create_text(
             10, 10,
             text=info_text,
