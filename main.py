@@ -33,6 +33,10 @@ class HexMapEditor:
         self.paint_tool_active = tk.BooleanVar()
         self.selected_terrain_var = tk.StringVar()
         
+        # Faction-Paint-Tool State
+        self.faction_paint_active = tk.BooleanVar()
+        self.selected_faction_var = tk.StringVar()
+        
         # GUI erstellen
         self._create_menu()
         self._create_main_layout()
@@ -95,7 +99,10 @@ class HexMapEditor:
             "• R: Reset View\\n"
             "\\nPaint Mode:\\n"
             "• Hold Left Mouse: Paint\\n"
-            "• Select terrain below"
+            "• Select terrain below\\n"
+            "\\nFaction Mode:\\n"
+            "• Hold Left Mouse: Paint\\n"
+            "• Select faction below"
         )
         controls_label = ttk.Label(
             info_frame,
@@ -140,6 +147,39 @@ class HexMapEditor:
         self.terrain_combo.pack(fill=tk.X)
         self.terrain_combo.bind('<<ComboboxSelected>>', self._on_terrain_selected)
         
+        # Faction-Paint-Tool Panel
+        faction_frame = ttk.LabelFrame(info_frame, text="Faction Tool")
+        faction_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        
+        # Faction-Tool Toggle
+        self.faction_checkbox = ttk.Checkbutton(
+            faction_frame,
+            text="Enable Faction Tool",
+            variable=self.faction_paint_active,
+            command=self._toggle_faction_tool
+        )
+        self.faction_checkbox.pack(anchor="w", padx=5, pady=5)
+        
+        # Faction-Auswahl
+        ttk.Label(faction_frame, text="Faction:").pack(anchor="w", padx=5)
+        
+        faction_combo_frame = ttk.Frame(faction_frame)
+        faction_combo_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.faction_combo = ttk.Combobox(
+            faction_combo_frame,
+            textvariable=self.selected_faction_var,
+            state="readonly",
+            width=15
+        )
+        
+        # Fülle Faction-Typen
+        self.faction_combo['values'] = ["NEUTRAL", "BLUE", "RED"]
+        self.faction_combo.set("BLUE")  # Blue als Standard
+            
+        self.faction_combo.pack(fill=tk.X)
+        self.faction_combo.bind('<<ComboboxSelected>>', self._on_faction_selected)
+        
         # Map Canvas (mitte)
         canvas_frame = ttk.LabelFrame(main_frame, text="Map View")
         canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
@@ -181,9 +221,11 @@ class HexMapEditor:
         self.map_canvas.on_tile_hover = self._on_tile_hover
         self.map_canvas.on_tile_click = self._on_tile_click
         self.map_canvas.on_tile_paint = self._on_tile_paint
+        self.map_canvas.on_faction_paint = self._on_faction_paint
         
-        # Initial Terrain setzen
+        # Initial Terrain und Faction setzen
         self._on_terrain_selected(None)
+        self._on_faction_selected(None)
         
         # Focus für Keyboard-Input
         self.map_canvas.get_widget().focus_set()
@@ -323,6 +365,10 @@ Kommende Features:
             if is_active:
                 terrain_name = self.selected_terrain_var.get()
                 self.status_label.config(text=f"Paint Tool activated: {terrain_name} - Hold left mouse to paint")
+                # Faction-Tool deaktivieren wenn Paint-Tool aktiviert wird
+                if self.faction_paint_active.get():
+                    self.faction_paint_active.set(False)
+                    self.map_canvas.set_faction_paint_mode(False)
             else:
                 self.status_label.config(text="Paint Tool deactivated")
     
@@ -342,6 +388,51 @@ Kommende Features:
             
             if self.paint_tool_active.get():
                 self.status_label.config(text=f"Paint Tool: {selected_name} selected")
+    
+    def _toggle_faction_tool(self):
+        """Aktiviert/deaktiviert das Faction-Tool"""
+        is_active = self.faction_paint_active.get()
+        
+        if hasattr(self, 'map_canvas'):
+            self.map_canvas.set_faction_paint_mode(is_active)
+            
+            # Status aktualisieren
+            if is_active:
+                faction_name = self.selected_faction_var.get()
+                self.status_label.config(text=f"Faction Tool activated: {faction_name} - Hold left mouse to paint")
+                # Terrain-Tool deaktivieren wenn Faction-Tool aktiviert wird
+                if self.paint_tool_active.get():
+                    self.paint_tool_active.set(False)
+                    self.map_canvas.set_paint_mode(False)
+            else:
+                self.status_label.config(text="Faction Tool deactivated")
+    
+    def _on_faction_selected(self, event):
+        """Wird aufgerufen wenn eine neue Fraktion ausgewählt wird"""
+        from data.models import FactionType
+        
+        selected_name = self.selected_faction_var.get()
+        
+        # Konvertiere String zu FactionType Enum
+        selected_faction = None
+        if selected_name == "NEUTRAL":
+            selected_faction = FactionType.NEUTRAL
+        elif selected_name == "BLUE":
+            selected_faction = FactionType.BLUE
+        elif selected_name == "RED":
+            selected_faction = FactionType.RED
+        
+        if hasattr(self, 'map_canvas') and selected_faction:
+            self.map_canvas.set_selected_faction(selected_faction)
+            
+            if self.faction_paint_active.get():
+                self.status_label.config(text=f"Faction Tool: {selected_name} selected")
+    
+    def _on_faction_paint(self, tile, old_faction):
+        """Wird aufgerufen wenn ein Tile mit Fraktion gemalt wird"""
+        faction_name = tile.faction.value
+        coords_text = f"Painted faction {faction_name} at ({tile.coordinates[0]}, {tile.coordinates[1]})"
+        self.status_label.config(text=coords_text)
     
     def _on_tile_paint(self, tile, old_area):
         """Wird aufgerufen wenn ein Tile gemalt wird"""

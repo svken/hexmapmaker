@@ -55,10 +55,17 @@ class MapCanvas:
         self.selected_terrain = None
         self.last_painted_tile = None
         
+        # Faction-Paint-Tool Parameter
+        self.faction_paint_mode = False
+        self.is_faction_painting = False
+        self.selected_faction = None
+        self.last_faction_painted_tile = None
+        
         # Callbacks
         self.on_tile_hover: Optional[Callable[[Optional[Tile]], None]] = None
         self.on_tile_click: Optional[Callable[[Tile], None]] = None
         self.on_tile_paint: Optional[Callable[[Tile, any], None]] = None
+        self.on_faction_paint: Optional[Callable[[Tile, any], None]] = None
         
         # Event-Bindings
         self._bind_events()
@@ -105,6 +112,12 @@ class MapCanvas:
             if tile:
                 self._paint_tile(tile)
                 self.last_painted_tile = tile
+        elif self.faction_paint_mode and self.selected_faction:
+            self.is_faction_painting = True
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile:
+                self._paint_faction(tile)
+                self.last_faction_painted_tile = tile
         
         # Click wird in mouse_up behandelt für saubere Trennung
     
@@ -123,7 +136,13 @@ class MapCanvas:
             if tile and tile != self.last_painted_tile:
                 self._paint_tile(tile)
                 self.last_painted_tile = tile
-        elif self.is_dragging and not self.is_painting:
+        elif self.is_faction_painting and self.faction_paint_mode and self.selected_faction:
+            # Faction-Paint-Mode: Male Fraktionen über alle Tiles
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile and tile != self.last_faction_painted_tile:
+                self._paint_faction(tile)
+                self.last_faction_painted_tile = tile
+        elif self.is_dragging and not self.is_painting and not self.is_faction_painting:
             # Normal Pan-Mode
             dx = event.x - self.last_mouse_x
             dy = event.y - self.last_mouse_y
@@ -141,13 +160,16 @@ class MapCanvas:
         """Mouse-Button losgelassen"""
         was_dragging = self.is_dragging
         was_painting = self.is_painting
+        was_faction_painting = self.is_faction_painting
         
         self.is_dragging = False
         self.is_painting = False
+        self.is_faction_painting = False
         self.last_painted_tile = None
+        self.last_faction_painted_tile = None
         
         # Wenn nicht gedragt und nicht gemalt wurde, als Click behandeln
-        if not was_dragging and not was_painting:
+        if not was_dragging and not was_painting and not was_faction_painting:
             tile = self._get_tile_at_pixel(event.x, event.y)
             if tile and self.on_tile_click:
                 self.on_tile_click(tile)
@@ -335,6 +357,24 @@ class MapCanvas:
             tags=f"hex_{hex_x}_{hex_y}"
         )
         
+        # Faction-Rahmen zeichnen
+        if tile.faction.value != "neutral":
+            faction_colors = {
+                "blue": "#0066ff",
+                "red": "#ff0000",
+                "neutral": "#808080"
+            }
+            faction_color = faction_colors.get(tile.faction.value, "#808080")
+            faction_line_width = 3 if self.hex_size * self.zoom_factor > 15 else 2
+            
+            self.canvas.create_polygon(
+                coords,
+                fill="",  # Kein Fill, nur Rahmen
+                outline=faction_color,
+                width=faction_line_width,
+                tags=f"faction_{hex_x}_{hex_y}"
+            )
+        
         # Koordinaten anzeigen (nur bei großen Hexagonen)
         if self.hex_size * self.zoom_factor > 20:
             self.canvas.create_text(
@@ -397,6 +437,17 @@ class MapCanvas:
         """Setzt das aktuell ausgewählte Terrain für das Paint-Tool"""
         self.selected_terrain = terrain
     
+    def set_faction_paint_mode(self, enabled: bool):
+        """Aktiviert oder deaktiviert Faction-Paint-Mode"""
+        self.faction_paint_mode = enabled
+        if not enabled:
+            self.is_faction_painting = False
+            self.last_faction_painted_tile = None
+    
+    def set_selected_faction(self, faction):
+        """Setzt die aktuell ausgewählte Fraktion für das Faction-Paint-Tool"""
+        self.selected_faction = faction
+    
     def _paint_tile(self, tile: Tile):
         """Malt ein Tile mit dem ausgewählten Terrain"""
         if self.selected_terrain and tile.area != self.selected_terrain:
@@ -411,10 +462,25 @@ class MapCanvas:
             # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
             self._render_single_hex(tile.coordinates[0], tile.coordinates[1], tile)
     
+    def _paint_faction(self, tile: Tile):
+        """Malt ein Tile mit der ausgewählten Fraktion"""
+        if self.selected_faction and tile.faction != self.selected_faction:
+            # Setze die neue Fraktion
+            old_faction = tile.faction
+            tile.faction = self.selected_faction
+            
+            # Callback für andere Komponenten
+            if self.on_faction_paint:
+                self.on_faction_paint(tile, old_faction)
+            
+            # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
+            self._render_single_hex(tile.coordinates[0], tile.coordinates[1], tile)
+    
     def _render_single_hex(self, hex_x: int, hex_y: int, tile: Tile):
         """Rendert ein einzelnes Hex ohne komplettes Re-Render"""
-        # Lösche altes Hex
+        # Lösche altes Hex und Faction-Rahmen
         self.canvas.delete(f"hex_{hex_x}_{hex_y}")
+        self.canvas.delete(f"faction_{hex_x}_{hex_y}")
         
         # Zeichne neues Hex
         self._render_hex(hex_x, hex_y, tile)
