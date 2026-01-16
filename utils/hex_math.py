@@ -57,7 +57,7 @@ class HexMath:
         x = int(x)
         y = int(y)
         
-        # odd-r offset layout
+        # odd-r offset layout (flat-top hexes)
         pixel_x = hex_size * (3.0 / 2.0) * x
         pixel_y = hex_size * math.sqrt(3.0) * (y + 0.5 * (x & 1))
         
@@ -66,7 +66,7 @@ class HexMath:
     @staticmethod
     def pixel_to_hex(pixel_x: float, pixel_y: float, hex_size: float = 20.0) -> Tuple[int, int]:
         """
-        Konvertiert Pixel-Koordinaten zu Hex-Koordinaten
+        Konvertiert Pixel-Koordinaten zu Hex-Koordinaten (odd-r offset)
         
         Args:
             pixel_x: Pixel X-Position
@@ -76,12 +76,18 @@ class HexMath:
         Returns:
             (hex_x, hex_y) Tuple
         """
-        # Vereinfachte Näherung für odd-r
-        q = (pixel_x * 2.0/3.0) / hex_size
-        r = (-pixel_x / 3.0 + math.sqrt(3.0)/3.0 * pixel_y) / hex_size
+        # Direkte Umkehrung der hex_to_pixel Formel für odd-r layout
+        # pixel_x = hex_size * (3.0 / 2.0) * x
+        # pixel_y = hex_size * sqrt(3) * (y + 0.5 * (x & 1))
         
-        hex_x = round(q)
-        hex_y = round(r + 0.5 * (hex_x & 1))
+        # X-Koordinate ist einfach
+        hex_x_float = pixel_x / (hex_size * 3.0 / 2.0)
+        hex_x = round(hex_x_float)
+        
+        # Y-Koordinate berücksichtigt den offset für ungerade Spalten
+        offset = 0.5 * (hex_x & 1)
+        hex_y_float = (pixel_y / (hex_size * math.sqrt(3.0))) - offset
+        hex_y = round(hex_y_float)
         
         return hex_x, hex_y
     

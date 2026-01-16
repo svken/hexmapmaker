@@ -29,6 +29,10 @@ class HexMapEditor:
         # Grid Manager
         self.grid_manager = GridManager()
         
+        # Paint-Tool State
+        self.paint_tool_active = tk.BooleanVar()
+        self.selected_terrain_var = tk.StringVar()
+        
         # GUI erstellen
         self._create_menu()
         self._create_main_layout()
@@ -89,7 +93,9 @@ class HexMapEditor:
             "• Mouse Wheel: Zoom\\n"
             "• WASD: Pan\\n"
             "• R: Reset View\\n"
-            "• Click: Select Tile"
+            "\\nPaint Mode:\\n"
+            "• Hold Left Mouse: Paint\\n"
+            "• Select terrain below"
         )
         controls_label = ttk.Label(
             info_frame,
@@ -98,6 +104,41 @@ class HexMapEditor:
             justify=tk.LEFT
         )
         controls_label.pack(padx=10, pady=(20, 10), anchor="nw")
+        
+        # Paint-Tool Panel
+        paint_frame = ttk.LabelFrame(info_frame, text="Paint Tool")
+        paint_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        
+        # Paint-Tool Toggle
+        self.paint_checkbox = ttk.Checkbutton(
+            paint_frame,
+            text="Enable Paint Tool",
+            variable=self.paint_tool_active,
+            command=self._toggle_paint_tool
+        )
+        self.paint_checkbox.pack(anchor="w", padx=5, pady=5)
+        
+        # Terrain-Auswahl
+        ttk.Label(paint_frame, text="Terrain Type:").pack(anchor="w", padx=5)
+        
+        terrain_frame = ttk.Frame(paint_frame)
+        terrain_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.terrain_combo = ttk.Combobox(
+            terrain_frame,
+            textvariable=self.selected_terrain_var,
+            state="readonly",
+            width=15
+        )
+        
+        # Fülle Terrain-Typen
+        terrain_names = [area.display_name for area in self.grid_manager.grid.area_definitions]
+        self.terrain_combo['values'] = terrain_names
+        if terrain_names:
+            self.terrain_combo.set(terrain_names[1])  # Plain als Standard
+            
+        self.terrain_combo.pack(fill=tk.X)
+        self.terrain_combo.bind('<<ComboboxSelected>>', self._on_terrain_selected)
         
         # Map Canvas (rechts)
         canvas_frame = ttk.LabelFrame(main_frame, text="Map View")
@@ -110,6 +151,10 @@ class HexMapEditor:
         # Callbacks setzen
         self.map_canvas.on_tile_hover = self._on_tile_hover
         self.map_canvas.on_tile_click = self._on_tile_click
+        self.map_canvas.on_tile_paint = self._on_tile_paint
+        
+        # Initial Terrain setzen
+        self._on_terrain_selected(None)
         
         # Focus für Keyboard-Input
         self.map_canvas.get_widget().focus_set()
@@ -149,13 +194,18 @@ class HexMapEditor:
 Steuerung:
 
 Maus:
-• Linke Maustaste + Ziehen: Karte bewegen (Pan)
+• Linke Maustaste + Ziehen: Karte bewegen (Pan) / Malen (Paint-Mode)
 • Mausrad: Zoomen
 • Linke Maustaste: Tile auswählen
 
 Tastatur:
 • W, A, S, D: Karte bewegen
 • R: Ansicht zurücksetzen
+
+Paint-Tool:
+• Paint Tool aktivieren im linken Panel
+• Terrain-Typ auswählen
+• Linke Maustaste gedrückt halten und über Tiles bewegen zum Malen
 
 Menü:
 • File > New Map: Neue Karte erstellen
@@ -229,6 +279,43 @@ Kommende Features:
         """Wrapper für Center on Grid"""
         if hasattr(self, 'map_canvas'):
             self.map_canvas.center_on_grid()
+    
+    def _toggle_paint_tool(self):
+        """Aktiviert/deaktiviert das Paint-Tool"""
+        is_active = self.paint_tool_active.get()
+        
+        if hasattr(self, 'map_canvas'):
+            self.map_canvas.set_paint_mode(is_active)
+            
+            # Status aktualisieren
+            if is_active:
+                terrain_name = self.selected_terrain_var.get()
+                self.status_label.config(text=f"Paint Tool activated: {terrain_name} - Hold left mouse to paint")
+            else:
+                self.status_label.config(text="Paint Tool deactivated")
+    
+    def _on_terrain_selected(self, event):
+        """Wird aufgerufen wenn ein neuer Terrain-Typ ausgewählt wird"""
+        selected_name = self.selected_terrain_var.get()
+        
+        # Finde das entsprechende Area-Objekt
+        selected_area = None
+        for area in self.grid_manager.grid.area_definitions:
+            if area.display_name == selected_name:
+                selected_area = area
+                break
+        
+        if hasattr(self, 'map_canvas') and selected_area:
+            self.map_canvas.set_selected_terrain(selected_area)
+            
+            if self.paint_tool_active.get():
+                self.status_label.config(text=f"Paint Tool: {selected_name} selected")
+    
+    def _on_tile_paint(self, tile, old_area):
+        """Wird aufgerufen wenn ein Tile gemalt wird"""
+        terrain_name = tile.area.display_name if tile.area else "Unknown"
+        coords_text = f"Painted {terrain_name} at ({tile.coordinates[0]}, {tile.coordinates[1]})"
+        self.status_label.config(text=coords_text)
     
     def run(self):
         """Startet die Anwendung"""

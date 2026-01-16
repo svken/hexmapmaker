@@ -49,9 +49,16 @@ class MapCanvas:
         self.last_mouse_y = 0
         self.is_dragging = False
         
+        # Paint-Tool Parameter
+        self.paint_mode = False
+        self.is_painting = False
+        self.selected_terrain = None
+        self.last_painted_tile = None
+        
         # Callbacks
         self.on_tile_hover: Optional[Callable[[Optional[Tile]], None]] = None
         self.on_tile_click: Optional[Callable[[Tile], None]] = None
+        self.on_tile_paint: Optional[Callable[[Tile, any], None]] = None
         
         # Event-Bindings
         self._bind_events()
@@ -61,7 +68,7 @@ class MapCanvas:
     
     def _bind_events(self):
         """Bindet Mouse- und Keyboard-Events"""
-        # Mouse-Events für Pan
+        # Mouse-Events für Pan und Paint
         self.canvas.bind("<Button-1>", self._on_mouse_down)
         self.canvas.bind("<B1-Motion>", self._on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_mouse_up)
@@ -75,23 +82,49 @@ class MapCanvas:
         self.canvas.bind("<Motion>", self._on_mouse_motion)
         
         # Focus für Keyboard-Events
-        self.canvas.bind("<Button-1>", lambda e: self.canvas.focus_set())
-        self.canvas.bind("<Key>", self._on_key_press)
+        self.canvas.focus_set()
+        self.canvas.bind("<KeyPress>", self._on_key_press)
+        self.canvas.config(highlightthickness=0)
+        
+        # Mache Canvas fokussierbar
+        self.canvas.config(takefocus=True)
     
     def _on_mouse_down(self, event):
         """Mouse-Button gedrückt"""
         self.last_mouse_x = event.x
         self.last_mouse_y = event.y
-        self.is_dragging = True
+        self.is_dragging = False  # Erst bei Bewegung auf True setzen
         
-        # Prüfe auf Tile-Click
-        tile = self._get_tile_at_pixel(event.x, event.y)
-        if tile and self.on_tile_click:
-            self.on_tile_click(tile)
+        # Focus setzen
+        self.canvas.focus_set()
+        
+        # Paint-Mode aktivieren wenn Pinsel aktiv
+        if self.paint_mode and self.selected_terrain:
+            self.is_painting = True
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile:
+                self._paint_tile(tile)
+                self.last_painted_tile = tile
+        
+        # Click wird in mouse_up behandelt für saubere Trennung
     
     def _on_mouse_drag(self, event):
-        """Mouse-Drag für Panning"""
-        if self.is_dragging:
+        """Mouse-Drag für Panning oder Painting"""
+        # Erst ab einer gewissen Bewegung als Drag behandeln
+        if not self.is_dragging:
+            dx = abs(event.x - self.last_mouse_x)
+            dy = abs(event.y - self.last_mouse_y)
+            if dx > 3 or dy > 3:  # Mindestbewegung für Drag
+                self.is_dragging = True
+        
+        if self.is_painting and self.paint_mode and self.selected_terrain:
+            # Paint-Mode: Male über alle Tiles die der Cursor berührt
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile and tile != self.last_painted_tile:
+                self._paint_tile(tile)
+                self.last_painted_tile = tile
+        elif self.is_dragging and not self.is_painting:
+            # Normal Pan-Mode
             dx = event.x - self.last_mouse_x
             dy = event.y - self.last_mouse_y
             
@@ -106,7 +139,18 @@ class MapCanvas:
     
     def _on_mouse_up(self, event):
         """Mouse-Button losgelassen"""
+        was_dragging = self.is_dragging
+        was_painting = self.is_painting
+        
         self.is_dragging = False
+        self.is_painting = False
+        self.last_painted_tile = None
+        
+        # Wenn nicht gedragt und nicht gemalt wurde, als Click behandeln
+        if not was_dragging and not was_painting:
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile and self.on_tile_click:
+                self.on_tile_click(tile)
     
     def _on_mouse_wheel(self, event):
         """Mouse-Wheel für Zoom"""
@@ -341,3 +385,36 @@ class MapCanvas:
     def get_widget(self) -> tk.Canvas:
         """Gibt das Canvas-Widget zurück"""
         return self.canvas
+    
+    def set_paint_mode(self, enabled: bool):
+        """Aktiviert oder deaktiviert Paint-Mode"""
+        self.paint_mode = enabled
+        if not enabled:
+            self.is_painting = False
+            self.last_painted_tile = None
+    
+    def set_selected_terrain(self, terrain):
+        """Setzt das aktuell ausgewählte Terrain für das Paint-Tool"""
+        self.selected_terrain = terrain
+    
+    def _paint_tile(self, tile: Tile):
+        """Malt ein Tile mit dem ausgewählten Terrain"""
+        if self.selected_terrain and tile.area != self.selected_terrain:
+            # Setze das neue Terrain
+            old_area = tile.area
+            tile.area = self.selected_terrain
+            
+            # Callback für andere Komponenten
+            if self.on_tile_paint:
+                self.on_tile_paint(tile, old_area)
+            
+            # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
+            self._render_single_hex(tile.coordinates[0], tile.coordinates[1], tile)
+    
+    def _render_single_hex(self, hex_x: int, hex_y: int, tile: Tile):
+        """Rendert ein einzelnes Hex ohne komplettes Re-Render"""
+        # Lösche altes Hex
+        self.canvas.delete(f"hex_{hex_x}_{hex_y}")
+        
+        # Zeichne neues Hex
+        self._render_hex(hex_x, hex_y, tile)
