@@ -90,11 +90,20 @@ class MapExporter:
                 faction = tile.faction.value
             else:
                 faction = str(tile.faction).lower()
+
+        # Strategic Role extrahieren
+        strategic_role = "none"
+        if hasattr(tile, 'strategic_role'):
+            if hasattr(tile.strategic_role, 'value'):
+                strategic_role = tile.strategic_role.value
+            else:
+                strategic_role = str(tile.strategic_role).lower()
         
         return {
             "coords": coords,
             "area": area,
-            "faction": faction
+            "faction": faction,
+            "strategic_role": strategic_role
         }
     
     def _read_json_file(self, file_path: str):
@@ -145,3 +154,12 @@ class MapExporter:
                     tile.faction = FactionType(faction_str)
                 except ValueError:
                     tile.faction = FactionType.NEUTRAL
+
+            # Update Strategic Role
+            if "strategic_role" in tile_data:
+                from data.models import StrategicRoleType
+                role_str = tile_data["strategic_role"]
+                try:
+                    tile.strategic_role = StrategicRoleType(role_str)
+                except ValueError:
+                    tile.strategic_role = StrategicRoleType.NONE

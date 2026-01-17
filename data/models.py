@@ -20,6 +20,13 @@ class FactionType(Enum):
     BLUE = "blue"
     RED = "red"
 
+class StrategicRoleType(Enum):
+    """Strategische Rollen für Tiles"""
+    FIREPOWER = "firepower"
+    MOBILITY = "mobility"
+    INTEL = "intel"
+    NONE = "none"
+
 
 @dataclass
 class Area:
@@ -36,6 +43,7 @@ class Tile:
     area: Optional[Area] = None
     is_land: bool = True
     faction: FactionType = FactionType.NEUTRAL
+    strategic_role: StrategicRoleType = StrategicRoleType.NONE
 
 
 @dataclass
