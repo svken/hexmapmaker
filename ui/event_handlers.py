@@ -42,37 +42,33 @@ class EventHandlers:
     def _format_tile_properties(self, tile: Tile) -> str:
         """Formatiert Tile-Eigenschaften für Anzeige"""
         lines = []
-        lines.append(f"=== TILE PROPERTIES ===")
+        lines.append("=== TILE PROPERTIES ===")
         lines.append(f"Coordinates: {tile.coordinates}")
+        lines.append("")
         
         if tile.area:
-            lines.append(f"\\nTerrain: {tile.area.name}")
+            lines.append("TERRAIN:")
+            lines.append(f"  Type: {tile.area.display_name}")
             lines.append(f"  ID: {tile.area.id}")
-            lines.append(f"  Color: {tile.area.color}")
-            lines.append(f"  Movement Cost: {tile.area.movement_cost}")
-            lines.append(f"  Resource Mult: {tile.area.resource_mult}")
-            lines.append(f"  Attack Mult: {tile.area.attack_mult}")
-            lines.append(f"  Defense Mult: {tile.area.defense_mult}")
+            lines.append(f"  Move Cost: {tile.area.move_cost}")
+            lines.append(f"  Attack Mult: {tile.area.attack_mult:.1f}")
+            lines.append(f"  Defense Mult: {tile.area.defense_mult:.1f}")
+            lines.append("")
         
-        lines.append(f"\\nGeneral:")
+        lines.append("GENERAL:")
         lines.append(f"  Is Land: {tile.is_land}")
         lines.append(f"  Faction: {tile.faction.value}")
+        lines.append(f"  Selected: {tile.is_selected}")
+        lines.append(f"  Neighbours: {tile.neighbour_tiles}")
+        lines.append("")
         
-        lines.append(f"\\nResources:")
+        lines.append("RESOURCES:")
         lines.append(f"  Type: {tile.resource.value}")
         lines.append(f"  Count: {tile.resource_count:.1f}")
-        lines.append(f"  Regeneration: {tile.resource_regeneration_rate:.1f}/turn")
-        lines.append(f"  Max Capacity: {tile.max_resource_capacity:.1f}")
+        lines.append("")
         
-        lines.append(f"\\nMilitary:")
+        lines.append("MILITARY:")
         lines.append(f"  In Battle: {tile.in_battle}")
-        lines.append(f"  Strength: {tile.strength:.1f}")
-        lines.append(f"  Fortification Level: {tile.fortification_level}")
-        lines.append(f"  Garrison Size: {tile.garrison_size}")
+        lines.append(f"  Front Degree: {tile.front_degree}")
         
-        lines.append(f"\\nEnvironment:")
-        lines.append(f"  Elevation: {tile.elevation:.1f}m")
-        lines.append(f"  Temperature: {tile.temperature:.1f}°C")
-        lines.append(f"  Fertility: {tile.fertility:.1f}")
-        
-        return "\\n".join(lines)
+        return "\n".join(lines)

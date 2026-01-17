@@ -4,7 +4,7 @@ Basiert auf den Godot-Projektstrukturen
 """
 from typing import Optional, List, Tuple
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, field
 
 
 class ResourceType(Enum):
@@ -34,45 +34,20 @@ class Area:
 
 @dataclass  
 class Tile:
-    """Hex-Tile mit allen Eigenschaften"""
-    # Grundlegende Eigenschaften
-    coordinates: Tuple[int, int]
+    """Hex-Tile mit reduzierten Eigenschaften"""
     area: Optional[Area] = None
     is_land: bool = True
     
-    # Ressourcen System
     resource: ResourceType = ResourceType.NONE
     resource_count: float = 0.0
-    resource_regeneration_rate: float = 0.1
-    max_resource_capacity: float = 10.0
     
-    # Militär und Kampf
+    is_selected: bool = False
+    coordinates: Tuple[int, int] = (0, 0)
+    neighbour_tiles: int = 0
+    
     faction: FactionType = FactionType.NEUTRAL
     in_battle: bool = False
     front_degree: int = 0
-    strength: float = 0.0
-    fortification_level: int = 0
-    garrison_size: int = 0
-    
-    # Erweiterte Eigenschaften
-    elevation: float = 0.0
-    temperature: float = 20.0
-    fertility: float = 1.0
-    accessibility: float = 1.0
-    
-    # Strukturen
-    structures: List[str] = field(default_factory=list)
-    population: int = 0
-    happiness: float = 50.0
-    
-    # Strategische Information
-    strategic_value: int = 1
-    supply_lines: List[Tuple[int, int]] = field(default_factory=list)
-    visibility: int = 1
-    
-    # UI
-    is_selected: bool = False
-    neighbour_tiles: int = 0
 
 
 @dataclass
