@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from typing import Callable, Optional
 
-from data.models import get_default_areas, FactionType
+from data.models import get_default_areas, FactionType, StrategicRoleType
 from ui.dialogs import GridSizeDialog
 
 
@@ -29,6 +29,11 @@ class MainWindow:
         # Export callbacks
         self.on_export: Optional[Callable] = None
         self.on_load: Optional[Callable] = None
+        
+        # Tile editing
+        self.selected_tile = None
+        self.tile_editor_vars = {}
+        self.tile_editor_widgets = {}
         
         # Canvas Frame referenz für später
         self.canvas_frame = None
@@ -91,6 +96,7 @@ class MainWindow:
         props_frame.pack_propagate(False)
         
         self._create_properties_panel(props_frame)
+        self._create_tile_editor_panel(props_frame)
     
     def setup_map_canvas(self, map_canvas):
         """Setzt Map Canvas nach der Initialisierung"""
@@ -255,6 +261,101 @@ class MainWindow:
         self.props_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     
+    def _create_tile_editor_panel(self, parent):
+        """Erstellt das Tile-Editor Panel"""
+        editor_frame = ttk.LabelFrame(parent, text="Edit Selected Tile")
+        editor_frame.pack(fill=tk.X, padx=5, pady=(10, 0))
+        
+        # Info Label
+        self.tile_info_label = ttk.Label(
+            editor_frame,
+            text="Click on a tile to edit its properties",
+            anchor="center",
+            justify=tk.CENTER
+        )
+        self.tile_info_label.pack(padx=5, pady=5)
+        
+        # Editor-Container (wird versteckt bis ein Tile ausgewählt ist)
+        self.tile_editor_container = ttk.Frame(editor_frame)
+        
+        # Area/Terrain Dropdown
+        area_frame = ttk.Frame(self.tile_editor_container)
+        area_frame.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(area_frame, text="Terrain:", width=12).pack(side=tk.LEFT)
+        
+        self.tile_editor_vars['area'] = tk.StringVar()
+        area_combo = ttk.Combobox(
+            area_frame,
+            textvariable=self.tile_editor_vars['area'],
+            state="readonly",
+            width=12
+        )
+        areas = get_default_areas()
+        area_combo['values'] = [area.display_name for area in areas]
+        area_combo.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        area_combo.bind('<<ComboboxSelected>>', self._on_tile_area_changed)
+        self.tile_editor_widgets['area'] = area_combo
+        
+        # Is Land Checkbox
+        land_frame = ttk.Frame(self.tile_editor_container)
+        land_frame.pack(fill=tk.X, padx=5, pady=2)
+        self.tile_editor_vars['is_land'] = tk.BooleanVar()
+        land_check = ttk.Checkbutton(
+            land_frame,
+            text="Is Land",
+            variable=self.tile_editor_vars['is_land'],
+            command=self._on_tile_is_land_changed
+        )
+        land_check.pack(side=tk.LEFT)
+        self.tile_editor_widgets['is_land'] = land_check
+        
+        # Faction Dropdown
+        faction_frame = ttk.Frame(self.tile_editor_container)
+        faction_frame.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(faction_frame, text="Faction:", width=12).pack(side=tk.LEFT)
+        
+        self.tile_editor_vars['faction'] = tk.StringVar()
+        faction_combo = ttk.Combobox(
+            faction_frame,
+            textvariable=self.tile_editor_vars['faction'],
+            state="readonly",
+            width=12
+        )
+        faction_combo['values'] = [faction.value for faction in FactionType]
+        faction_combo.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        faction_combo.bind('<<ComboboxSelected>>', self._on_tile_faction_changed)
+        self.tile_editor_widgets['faction'] = faction_combo
+        
+        # Strategic Role Dropdown
+        role_frame = ttk.Frame(self.tile_editor_container)
+        role_frame.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(role_frame, text="Strategic Role:", width=12).pack(side=tk.LEFT)
+        
+        self.tile_editor_vars['strategic_role'] = tk.StringVar()
+        role_combo = ttk.Combobox(
+            role_frame,
+            textvariable=self.tile_editor_vars['strategic_role'],
+            state="readonly",
+            width=12
+        )
+        role_combo['values'] = [role.value for role in StrategicRoleType]
+        role_combo.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        role_combo.bind('<<ComboboxSelected>>', self._on_tile_strategic_role_changed)
+        self.tile_editor_widgets['strategic_role'] = role_combo
+        
+        # Apply Button
+        apply_frame = ttk.Frame(self.tile_editor_container)
+        apply_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
+        
+        ttk.Button(
+            apply_frame,
+            text="Apply Changes",
+            command=self._apply_tile_changes
+        ).pack(fill=tk.X)
+        
+        # Container ist zu Beginn versteckt
+        # self.tile_editor_container.pack() wird erst aufgerufen wenn ein Tile ausgewählt ist
+    
     def _create_status_bar(self):
         """Erstellt die Statusleiste"""
         self.status_label = ttk.Label(
@@ -350,3 +451,149 @@ class MainWindow:
         self._on_terrain_selected(None)
         self._on_faction_selected(None)
         self._on_brush_size_changed(1)
+    
+    def _on_tile_area_changed(self, event):
+        """Area/Terrain für ausgewähltes Tile geändert"""
+        if not self.selected_tile:
+            return
+        self._mark_tile_as_modified()
+    
+    def _on_tile_is_land_changed(self):
+        """Is Land für ausgewähltes Tile geändert"""
+        if not self.selected_tile:
+            return
+        self._mark_tile_as_modified()
+    
+    def _on_tile_faction_changed(self, event):
+        """Faction für ausgewähltes Tile geändert"""
+        if not self.selected_tile:
+            return
+        self._mark_tile_as_modified()
+    
+    def _on_tile_strategic_role_changed(self, event):
+        """Strategic Role für ausgewähltes Tile geändert"""
+        if not self.selected_tile:
+            return
+        self._mark_tile_as_modified()
+    
+    def _mark_tile_as_modified(self):
+        """Markiert das Tile als modifiziert"""
+        # Ändere Button-Text um anzuzeigen dass Änderungen vorliegen
+        apply_button = None
+        for child in self.tile_editor_container.winfo_children():
+            if isinstance(child, ttk.Frame):
+                for subchild in child.winfo_children():
+                    if isinstance(subchild, ttk.Button) and "Apply" in subchild.cget("text"):
+                        apply_button = subchild
+                        break
+        
+        if apply_button:
+            apply_button.config(text="Apply Changes*")
+    
+    def _apply_tile_changes(self):
+        """Wendet die Änderungen auf das ausgewählte Tile an"""
+        if not self.selected_tile:
+            return
+        
+        # Area/Terrain ändern
+        area_name = self.tile_editor_vars['area'].get()
+        areas = get_default_areas()
+        selected_area = next(
+            (area for area in areas if area.display_name == area_name),
+            None
+        )
+        if selected_area:
+            self.selected_tile.area = selected_area
+        
+        # Is Land ändern
+        self.selected_tile.is_land = self.tile_editor_vars['is_land'].get()
+        
+        # Faction ändern
+        faction_name = self.tile_editor_vars['faction'].get()
+        faction = next(
+            (f for f in FactionType if f.value == faction_name),
+            FactionType.NEUTRAL
+        )
+        self.selected_tile.faction = faction
+        
+        # Strategic Role ändern
+        role_name = self.tile_editor_vars['strategic_role'].get()
+        role = next(
+            (r for r in StrategicRoleType if r.value == role_name),
+            StrategicRoleType.NONE
+        )
+        self.selected_tile.strategic_role = role
+        
+        # Karte neu rendern
+        if self.map_canvas:
+            self.map_canvas.render_map()
+        
+        # Button-Text zurücksetzen
+        apply_button = None
+        for child in self.tile_editor_container.winfo_children():
+            if isinstance(child, ttk.Frame):
+                for subchild in child.winfo_children():
+                    if isinstance(subchild, ttk.Button):
+                        apply_button = subchild
+                        break
+        
+        if apply_button:
+            apply_button.config(text="Apply Changes")
+        
+        # Properties Text aktualisieren
+        properties_text = self._format_tile_properties(self.selected_tile)
+        self.update_properties(properties_text)
+        
+        # Status aktualisieren
+        coords = self.selected_tile.coordinates
+        self.set_status(f"Applied changes to tile at ({coords[0]}, {coords[1]})")
+    
+    def select_tile_for_editing(self, tile):
+        """Wählt ein Tile für die Bearbeitung aus"""
+        self.selected_tile = tile
+        
+        if tile:
+            # Tile-Infos anzeigen
+            coords = tile.coordinates
+            self.tile_info_label.config(text=f"Editing Tile ({coords[0]}, {coords[1]})")
+            
+            # Editor-Container anzeigen
+            if not self.tile_editor_container.winfo_manager():
+                self.tile_editor_container.pack(fill=tk.X, padx=5, pady=5)
+            
+            # Aktuelle Werte in die Editor-Felder setzen
+            if tile.area:
+                self.tile_editor_vars['area'].set(tile.area.display_name)
+            else:
+                self.tile_editor_vars['area'].set("")
+            
+            self.tile_editor_vars['is_land'].set(tile.is_land)
+            self.tile_editor_vars['faction'].set(tile.faction.value)
+            self.tile_editor_vars['strategic_role'].set(tile.strategic_role.value)
+        else:
+            # Kein Tile ausgewählt
+            self.tile_info_label.config(text="Click on a tile to edit its properties")
+            
+            # Editor-Container verstecken
+            if self.tile_editor_container.winfo_manager():
+                self.tile_editor_container.pack_forget()
+    
+    def _format_tile_properties(self, tile) -> str:
+        """Formatiert Tile-Eigenschaften für Anzeige"""
+        lines = []
+        lines.append("=== TILE PROPERTIES ===")
+        lines.append(f"Coordinates: {tile.coordinates}")
+        lines.append("")
+        
+        if tile.area:
+            lines.append("TERRAIN:")
+            lines.append(f"  Type: {tile.area.display_name}")
+            lines.append(f"  ID: {tile.area.id}")
+            lines.append("")
+        
+        lines.append("PROPERTIES:")
+        lines.append(f"  Is Land: {tile.is_land}")
+        lines.append(f"  Faction: {tile.faction.value}")
+        lines.append(f"  Strategic Role: {tile.strategic_role.value}")
+        
+        return "\\n".join(lines)

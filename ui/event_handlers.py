@@ -15,6 +15,7 @@ class EventHandlers:
         
         # Event-Callbacks setzen
         self.map_canvas.on_tile_hover = self._on_tile_hover
+        self.map_canvas.on_tile_click = self._on_tile_click
         self.map_canvas.on_tile_paint = self._on_terrain_painted
         self.map_canvas.on_faction_paint = self._on_faction_painted
     
@@ -26,6 +27,16 @@ class EventHandlers:
             self.main_window.update_properties(properties_text)
         else:
             self.main_window.update_properties("No tile selected")
+    
+    def _on_tile_click(self, tile: Tile):
+        """Wird aufgerufen wenn auf ein Tile geklickt wird"""
+        if tile:
+            # Tile für Bearbeitung auswählen
+            self.main_window.select_tile_for_editing(tile)
+            
+            # Status aktualisieren
+            coords = tile.coordinates
+            self.main_window.set_status(f"Selected tile at ({coords[0]}, {coords[1]}) for editing")
     
     def _on_terrain_painted(self, tile: Tile, old_area):
         """Wird aufgerufen wenn ein Tile mit Terrain bemalt wurde"""
@@ -55,5 +66,6 @@ class EventHandlers:
         lines.append("PROPERTIES:")
         lines.append(f"  Is Land: {tile.is_land}")
         lines.append(f"  Faction: {tile.faction.value}")
+        lines.append(f"  Strategic Role: {tile.strategic_role.value}")
         
         return "\n".join(lines)
