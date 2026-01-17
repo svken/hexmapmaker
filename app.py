@@ -58,6 +58,7 @@ class HexMapApplication:
         """Setzt Callbacks zwischen Komponenten"""
         self.main_window.on_new_grid = self._create_new_grid
         self.main_window.on_export = self._export_map
+        self.main_window.on_load = self._load_map
     
     def _post_init_setup(self):
         """Post-Initialisierung Setup"""
@@ -99,6 +100,18 @@ class HexMapApplication:
         success = self.exporter.export_map()
         if success:
             self.main_window.set_status("Map exported successfully")
+    
+    def _load_map(self):
+        """Lädt eine Karte aus JSON"""
+        success = self.exporter.load_map()
+        if success:
+            # UI aktualisieren
+            self.main_window.update_grid_info()
+            
+            # Map neu rendern
+            self.map_canvas.render_map()
+            
+            self.main_window.set_status("Map loaded successfully")
     
     def run(self):
         """Startet die Anwendung"""

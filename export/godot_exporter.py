@@ -32,6 +32,25 @@ class MapExporter:
             messagebox.showerror("Export Error", f"Failed to export map:\\n{str(e)}")
             return False
     
+    def load_map(self):
+        """Lädt eine Karte aus einer JSON Datei"""
+        file_path = filedialog.askopenfilename(
+            title="Load Hex Map",
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("All Files", "*.*")]
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            self._read_json_file(file_path)
+            messagebox.showinfo("Load Success", f"Map loaded successfully from:\\n{file_path}")
+            return True
+        except Exception as e:
+            messagebox.showerror("Load Error", f"Failed to load map:\\n{str(e)}")
+            return False
+    
     def _write_json_file(self, file_path: str):
         """Schreibt die Karte als JSON Datei"""
         grid = self.grid_manager.grid
@@ -77,3 +96,52 @@ class MapExporter:
             "area": area,
             "faction": faction
         }
+    
+    def _read_json_file(self, file_path: str):
+        """Lädt Karten-Daten aus einer JSON Datei"""
+        with open(file_path, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+        
+        if "map" not in json_data:
+            raise ValueError("JSON file must contain a 'map' array")
+        
+        map_data = json_data["map"]
+        grid = self.grid_manager.grid
+        
+        # Update existing tiles with loaded data
+        for tile_data in map_data:
+            self._update_tile_from_data(tile_data, grid)
+    
+    def _update_tile_from_data(self, tile_data: dict, grid):
+        """Aktualisiert ein Tile mit Daten aus der JSON"""
+        if "coords" not in tile_data:
+            return
+        
+        coords = tile_data["coords"]
+        if len(coords) != 2:
+            return
+            
+        x, y = coords[0], coords[1]
+        
+        # Finde das entsprechende Tile im Grid
+        tile_index = y * grid.width + x
+        if 0 <= tile_index < len(grid.tiles):
+            tile = grid.tiles[tile_index]
+            
+            # Update Area
+            if "area" in tile_data and tile_data["area"]:
+                area_id = tile_data["area"]
+                # Finde die Area in den area_definitions
+                for area in grid.area_definitions:
+                    if area.id == area_id:
+                        tile.area = area
+                        break
+            
+            # Update Faction
+            if "faction" in tile_data:
+                from data.models import FactionType
+                faction_str = tile_data["faction"]
+                try:
+                    tile.faction = FactionType(faction_str)
+                except ValueError:
+                    tile.faction = FactionType.NEUTRAL

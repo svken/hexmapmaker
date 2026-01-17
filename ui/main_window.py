@@ -26,7 +26,9 @@ class MainWindow:
         
         # Callbacks
         self.on_new_grid: Optional[Callable] = None
+        # Export callbacks
         self.on_export: Optional[Callable] = None
+        self.on_load: Optional[Callable] = None
         
         # Canvas Frame referenz für später
         self.canvas_frame = None
@@ -225,6 +227,13 @@ class MainWindow:
             command=lambda: self.on_export() if self.on_export else None
         )
         self.export_button.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.load_button = ttk.Button(
+            export_frame,
+            text="Load from JSON",
+            command=lambda: self.on_load() if self.on_load else None
+        )
+        self.load_button.pack(fill=tk.X, padx=5, pady=5)
     
     def _create_properties_panel(self, parent):
         """Erstellt Properties Panel"""
