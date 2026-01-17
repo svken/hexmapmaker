@@ -1,6 +1,6 @@
 """
 Hex-Mathematik Funktionen
-Implementiert das odd-r offset System aus dem Godot-Projekt
+Implementiert das odd-q offset System für pointy-top Hexagone
 """
 import math
 from typing import Tuple, List
@@ -51,7 +51,7 @@ class HexMath:
     @staticmethod
     def get_hex_neighbors(x: int, y: int) -> List[Tuple[int, int]]:
         """
-        Hex-Nachbarn für odd-r offset System
+        Hex-Nachbarn für odd-q offset System
         
         Args:
             x: X-Koordinate
@@ -64,25 +64,25 @@ class HexMath:
         x = int(x)
         y = int(y)
         
-        odd = (y & 1) == 1
+        odd = (x & 1) == 1
         
         if odd:
             return [
-                (x - 1, y), (x + 1, y),      # links, rechts
-                (x, y - 1), (x + 1, y - 1),  # oben-links, oben-rechts
-                (x, y + 1), (x + 1, y + 1),  # unten-links, unten-rechts
+                (x, y - 1), (x, y + 1),      # oben, unten
+                (x - 1, y), (x - 1, y + 1),  # links-oben, links-unten
+                (x + 1, y), (x + 1, y + 1),  # rechts-oben, rechts-unten
             ]
         else:
             return [
-                (x - 1, y), (x + 1, y),      # links, rechts
-                (x - 1, y - 1), (x, y - 1),  # oben-links, oben-rechts
-                (x - 1, y + 1), (x, y + 1),  # unten-links, unten-rechts
+                (x, y - 1), (x, y + 1),      # oben, unten
+                (x - 1, y - 1), (x - 1, y),  # links-oben, links-unten
+                (x + 1, y - 1), (x + 1, y),  # rechts-oben, rechts-unten
             ]
     
     @staticmethod
     def hex_to_pixel(x: int, y: int, hex_size: float = 20.0) -> Tuple[float, float]:
         """
-        Konvertiert Hex-Koordinaten zu Pixel-Koordinaten (odd-r offset)
+        Konvertiert Hex-Koordinaten zu Pixel-Koordinaten (odd-q offset)
         
         Args:
             x: Hex X-Koordinate
@@ -96,16 +96,16 @@ class HexMath:
         x = int(x)
         y = int(y)
         
-        # odd-r offset layout (flat-top hexes)
-        pixel_x = hex_size * (3.0 / 2.0) * x
-        pixel_y = hex_size * math.sqrt(3.0) * (y + 0.5 * (x & 1))
+        # odd-q offset layout (pointy-top hexes)
+        pixel_x = hex_size * math.sqrt(3.0) * (x + 0.5 * (y & 1))
+        pixel_y = hex_size * (3.0 / 2.0) * y
         
         return pixel_x, pixel_y
     
     @staticmethod
     def pixel_to_hex(pixel_x: float, pixel_y: float, hex_size: float = 20.0) -> Tuple[int, int]:
         """
-        Konvertiert Pixel-Koordinaten zu Hex-Koordinaten (odd-r offset)
+        Konvertiert Pixel-Koordinaten zu Hex-Koordinaten (odd-q offset)
         
         Args:
             pixel_x: Pixel X-Position
@@ -115,25 +115,25 @@ class HexMath:
         Returns:
             (hex_x, hex_y) Tuple
         """
-        # Direkte Umkehrung der hex_to_pixel Formel für odd-r layout
-        # pixel_x = hex_size * (3.0 / 2.0) * x
-        # pixel_y = hex_size * sqrt(3) * (y + 0.5 * (x & 1))
+        # Direkte Umkehrung der hex_to_pixel Formel für odd-q layout
+        # pixel_x = hex_size * sqrt(3) * (x + 0.5 * (y & 1))
+        # pixel_y = hex_size * (3.0 / 2.0) * y
         
-        # X-Koordinate ist einfach
-        hex_x_float = pixel_x / (hex_size * 3.0 / 2.0)
-        hex_x = round(hex_x_float)
-        
-        # Y-Koordinate berücksichtigt den offset für ungerade Spalten
-        offset = 0.5 * (hex_x & 1)
-        hex_y_float = (pixel_y / (hex_size * math.sqrt(3.0))) - offset
+        # Y-Koordinate ist einfach
+        hex_y_float = pixel_y / (hex_size * 3.0 / 2.0)
         hex_y = round(hex_y_float)
+        
+        # X-Koordinate berücksichtigt den offset für ungerade Reihen
+        offset = 0.5 * (hex_y & 1)
+        hex_x_float = (pixel_x / (hex_size * math.sqrt(3.0))) - offset
+        hex_x = round(hex_x_float)
         
         return hex_x, hex_y
     
     @staticmethod
     def get_hex_vertices(center_x: float, center_y: float, hex_size: float) -> List[Tuple[float, float]]:
         """
-        Berechnet die 6 Eckpunkte eines Hexagons
+        Berechnet die 6 Eckpunkte eines Hexagons (pointy-top)
         
         Args:
             center_x: Zentrum X
@@ -145,7 +145,8 @@ class HexMath:
         """
         vertices = []
         for i in range(6):
-            angle = math.pi / 3.0 * i  # 60 Grad Schritte
+            # Für pointy-top hexagons: Start bei 90 Grad (pi/2) und rotiere um 60 Grad
+            angle = math.pi / 2.0 + math.pi / 3.0 * i  # 60 Grad Schritte, Start bei 90°
             vertex_x = center_x + hex_size * math.cos(angle)
             vertex_y = center_y + hex_size * math.sin(angle)
             vertices.append((vertex_x, vertex_y))
@@ -163,10 +164,10 @@ class HexMath:
         Returns:
             Hex-Distanz
         """
-        # Konvertiere zu cube coordinates für einfachere Distanz-Berechnung
+        # Konvertiere zu cube coordinates für einfachere Distanz-Berechnung (odd-q offset)
         def offset_to_cube(col: int, row: int) -> Tuple[int, int, int]:
-            q = col
-            r = row - (col + (col & 1)) // 2
+            q = col - (row + (row & 1)) // 2
+            r = row
             s = -q - r
             return q, r, s
         
