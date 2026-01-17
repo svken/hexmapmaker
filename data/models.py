@@ -26,28 +26,16 @@ class Area:
     """Terrain-Typ Definition"""
     id: str
     display_name: str
-    move_cost: int
-    attack_mult: float
-    defense_mult: float
     color: str = "#ffffff"  # Hex-Farbe für Darstellung
 
 
 @dataclass  
 class Tile:
-    """Hex-Tile mit reduzierten Eigenschaften"""
+    """Hex-Tile mit wesentlichen Eigenschaften"""
+    coordinates: Tuple[int, int] = (0, 0)
     area: Optional[Area] = None
     is_land: bool = True
-    
-    resource: ResourceType = ResourceType.NONE
-    resource_count: float = 0.0
-    
-    is_selected: bool = False
-    coordinates: Tuple[int, int] = (0, 0)
-    neighbour_tiles: int = 0
-    
     faction: FactionType = FactionType.NEUTRAL
-    in_battle: bool = False
-    front_degree: int = 0
 
 
 @dataclass
@@ -87,9 +75,9 @@ class Grid:
 def get_default_areas() -> List[Area]:
     """Standard Terrain-Typen"""
     return [
-        Area("desert", "Desert", 3, 0.8, 0.9, "#f4e3a5"),
-        Area("plain", "Plain", 3, 0.8, 0.9, "#90c695"),
-        Area("mountains", "Mountains", 4, 10.0, 20.0, "#8b7355"),
-        Area("city", "City", 2, 0.9, 1.4, "#888888"),
-        Area("water", "Water", 100, 0.0, 0.0, "#4682b4"),
+        Area("desert", "Desert", "#f4e3a5"),
+        Area("plain", "Plain", "#90c695"),
+        Area("mountains", "Mountains", "#8b7355"),
+        Area("city", "City", "#888888"),
+        Area("water", "Water", "#4682b4"),
     ]

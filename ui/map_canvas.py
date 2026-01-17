@@ -368,11 +368,6 @@ class MapCanvas:
         outline_color = "#404040"
         line_width = 1
         
-        # Hervorhebung für ausgewähltes Tile
-        if tile.is_selected:
-            outline_color = "#ffffff"
-            line_width = 2
-        
         # Hexagon zeichnen
         self.canvas.create_polygon(
             coords,

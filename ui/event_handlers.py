@@ -50,25 +50,10 @@ class EventHandlers:
             lines.append("TERRAIN:")
             lines.append(f"  Type: {tile.area.display_name}")
             lines.append(f"  ID: {tile.area.id}")
-            lines.append(f"  Move Cost: {tile.area.move_cost}")
-            lines.append(f"  Attack Mult: {tile.area.attack_mult:.1f}")
-            lines.append(f"  Defense Mult: {tile.area.defense_mult:.1f}")
             lines.append("")
         
-        lines.append("GENERAL:")
+        lines.append("PROPERTIES:")
         lines.append(f"  Is Land: {tile.is_land}")
         lines.append(f"  Faction: {tile.faction.value}")
-        lines.append(f"  Selected: {tile.is_selected}")
-        lines.append(f"  Neighbours: {tile.neighbour_tiles}")
-        lines.append("")
-        
-        lines.append("RESOURCES:")
-        lines.append(f"  Type: {tile.resource.value}")
-        lines.append(f"  Count: {tile.resource_count:.1f}")
-        lines.append("")
-        
-        lines.append("MILITARY:")
-        lines.append(f"  In Battle: {tile.in_battle}")
-        lines.append(f"  Front Degree: {tile.front_degree}")
         
         return "\n".join(lines)

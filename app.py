@@ -96,7 +96,7 @@ class HexMapApplication:
     
     def _export_map(self):
         """Exportiert die Karte"""
-        success = self.exporter.export_to_godot()
+        success = self.exporter.export_map()
         if success:
             self.main_window.set_status("Map exported successfully")
     

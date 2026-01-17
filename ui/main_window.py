@@ -221,7 +221,7 @@ class MainWindow:
         
         self.export_button = ttk.Button(
             export_frame,
-            text="Export to Godot (.tres)",
+            text="Export to JSON",
             command=lambda: self.on_export() if self.on_export else None
         )
         self.export_button.pack(fill=tk.X, padx=5, pady=5)
