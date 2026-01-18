@@ -22,6 +22,8 @@ class MainWindow:
         self.selected_terrain_var = tk.StringVar()
         self.faction_paint_active = tk.BooleanVar()
         self.selected_faction_var = tk.StringVar()
+        self.strategic_role_paint_active = tk.BooleanVar()
+        self.selected_strategic_role_var = tk.StringVar()
         self.brush_size = tk.IntVar(value=1)
         
         # Callbacks
@@ -81,6 +83,7 @@ class MainWindow:
         # Tool Panels
         self._create_paint_tool_panel(info_frame)
         self._create_faction_tool_panel(info_frame)
+        self._create_strategic_role_tool_panel(info_frame)
         self._create_export_panel(info_frame)
         
         # Map Canvas (mitte)
@@ -118,8 +121,9 @@ class MainWindow:
             "• Adjust brush size\\n"
             "\\nFaction Mode:\\n"
             "• Hold Left Mouse: Paint\\n"
-            "• Select faction below\\n"
-            "• Adjust brush size"
+            "• Select faction below\\n"            "\nStrategic Role Mode:\n"
+            "• Hold Left Mouse: Paint\n"
+            "• Select role below\n"            "• Adjust brush size"
         )
         controls_label = ttk.Label(
             parent,
@@ -195,6 +199,39 @@ class MainWindow:
         
         # Brush Size Control für Faction
         self._create_brush_size_control(faction_frame, "faction")
+    
+    def _create_strategic_role_tool_panel(self, parent):
+        """Erstellt Strategic Role Tool Panel"""
+        role_frame = ttk.LabelFrame(parent, text="Strategic Role Tool")
+        role_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        
+        # Strategic Role Tool Toggle
+        self.strategic_role_checkbox = ttk.Checkbutton(
+            role_frame,
+            text="Enable Strategic Role Tool",
+            variable=self.strategic_role_paint_active,
+            command=self._toggle_strategic_role_tool
+        )
+        self.strategic_role_checkbox.pack(anchor="w", padx=5, pady=5)
+        
+        # Strategic Role Auswahl
+        ttk.Label(role_frame, text="Strategic Role:").pack(anchor="w", padx=5)
+        
+        self.strategic_role_combo = ttk.Combobox(
+            role_frame,
+            textvariable=self.selected_strategic_role_var,
+            state="readonly",
+            width=15
+        )
+        
+        # Fülle Strategic Role Typen
+        role_names = [role.value for role in StrategicRoleType]
+        self.strategic_role_combo['values'] = role_names
+        self.strategic_role_combo.pack(fill=tk.X, padx=5, pady=5)
+        self.strategic_role_combo.bind('<<ComboboxSelected>>', self._on_strategic_role_selected)
+        
+        # Brush Size Control für Strategic Role
+        self._create_brush_size_control(role_frame, "strategic_role")
     
     def _create_brush_size_control(self, parent, prefix):
         """Erstellt Brush Size Kontrolle"""
@@ -343,6 +380,23 @@ class MainWindow:
         role_combo.bind('<<ComboboxSelected>>', self._on_tile_strategic_role_changed)
         self.tile_editor_widgets['strategic_role'] = role_combo
         
+        # Production Entry (nur für bestimmte Strategic Roles)
+        production_frame = ttk.Frame(self.tile_editor_container)
+        production_frame.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(production_frame, text="Production:", width=12).pack(side=tk.LEFT)
+        
+        self.tile_editor_vars['production'] = tk.IntVar()
+        production_spinbox = ttk.Spinbox(
+            production_frame,
+            from_=0,
+            to=99,
+            textvariable=self.tile_editor_vars['production'],
+            width=12,
+            state="readonly"
+        )
+        production_spinbox.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        self.tile_editor_widgets['production'] = production_spinbox
+        
         # Apply Button
         apply_frame = ttk.Frame(self.tile_editor_container)
         apply_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
@@ -374,8 +428,10 @@ class MainWindow:
         
         if is_active:
             self.faction_paint_active.set(False)
+            self.strategic_role_paint_active.set(False)
             if self.map_canvas:
                 self.map_canvas.set_faction_paint_mode(False)
+                self.map_canvas.set_strategic_role_paint_mode(False)
     
     def _toggle_faction_tool(self):
         """Schaltet Faction-Tool an/aus"""
@@ -385,8 +441,23 @@ class MainWindow:
         
         if is_active:
             self.paint_tool_active.set(False)
+            self.strategic_role_paint_active.set(False)
             if self.map_canvas:
                 self.map_canvas.set_paint_mode(False)
+                self.map_canvas.set_strategic_role_paint_mode(False)
+    
+    def _toggle_strategic_role_tool(self):
+        """Schaltet Strategic Role Tool an/aus"""
+        is_active = self.strategic_role_paint_active.get()
+        if self.map_canvas:
+            self.map_canvas.set_strategic_role_paint_mode(is_active)
+        
+        if is_active:
+            self.paint_tool_active.set(False)
+            self.faction_paint_active.set(False)
+            if self.map_canvas:
+                self.map_canvas.set_paint_mode(False)
+                self.map_canvas.set_faction_paint_mode(False)
     
     def _on_terrain_selected(self, event):
         """Terrain-Auswahl geändert"""
@@ -410,6 +481,29 @@ class MainWindow:
         )
         if self.map_canvas:
             self.map_canvas.set_selected_faction(faction)
+    
+    def _on_strategic_role_selected(self, event):
+        """Strategic Role Auswahl geändert"""
+        role_name = self.selected_strategic_role_var.get()
+        role = next(
+            (r for r in StrategicRoleType if r.value == role_name),
+            StrategicRoleType.NONE
+        )
+        if self.map_canvas:
+            self.map_canvas.set_selected_strategic_role(role)
+            
+    def _on_tile_strategic_role_changed(self, event):
+        """Strategic Role im Tile Editor geändert"""
+        role_name = self.tile_editor_vars['strategic_role'].get()
+        production_widget = self.tile_editor_widgets.get('production')
+        
+        # Production Widget aktivieren/deaktivieren basierend auf Strategic Role
+        if production_widget:
+            if role_name in ["firepower", "mobility", "intel"]:
+                production_widget.config(state="normal")
+            else:
+                production_widget.config(state="disabled")
+                self.tile_editor_vars['production'].set(0)
     
     def _on_brush_size_changed(self, value):
         """Brush Size geändert"""
@@ -450,6 +544,7 @@ class MainWindow:
         # Initial Terrain und Faction setzen
         self._on_terrain_selected(None)
         self._on_faction_selected(None)
+        self._on_strategic_role_selected(None)
         self._on_brush_size_changed(1)
     
     def _on_tile_area_changed(self, event):
@@ -522,8 +617,12 @@ class MainWindow:
             (r for r in StrategicRoleType if r.value == role_name),
             StrategicRoleType.NONE
         )
-        self.selected_tile.strategic_role = role
-        
+        self.selected_tile.strategic_role = role        
+        # Production aktualisieren (nur für production-fähige Rollen)
+        if role.value in ["firepower", "mobility", "intel"]:
+            self.selected_tile.production = self.tile_editor_vars['production'].get()
+        else:
+            self.selected_tile.production = 0        
         # Karte neu rendern
         if self.map_canvas:
             self.map_canvas.render_map()

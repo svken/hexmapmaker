@@ -110,11 +110,17 @@ class MapExporter:
             else:
                 strategic_role = str(tile.strategic_role).lower()
         
+        # Production extrahieren
+        production = 0
+        if hasattr(tile, 'production'):
+            production = tile.production
+        
         return {
             "coords": coords,
             "area": area,
             "faction": faction,
-            "strategic_role": strategic_role
+            "strategic_role": strategic_role,
+            "production": production
         }
     
     def _read_json_file(self, file_path: str):
@@ -194,3 +200,10 @@ class MapExporter:
                     tile.strategic_role = StrategicRoleType(role_str)
                 except ValueError:
                     tile.strategic_role = StrategicRoleType.NONE
+            
+            # Update Production
+            if "production" in tile_data:
+                try:
+                    tile.production = int(tile_data["production"])
+                except (ValueError, TypeError):
+                    tile.production = 0

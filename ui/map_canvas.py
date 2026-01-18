@@ -62,6 +62,12 @@ class MapCanvas:
         self.selected_faction = None
         self.last_faction_painted_tile = None
         
+        # Strategic Role Paint Tool Parameter
+        self.strategic_role_paint_mode = False
+        self.is_strategic_role_painting = False
+        self.selected_strategic_role = None
+        self.last_strategic_role_painted_tile = None
+        
         # Brush Size
         self.brush_size = 1
         
@@ -122,6 +128,12 @@ class MapCanvas:
             if tile:
                 self._paint_faction(tile)
                 self.last_faction_painted_tile = tile
+        elif self.strategic_role_paint_mode and self.selected_strategic_role:
+            self.is_strategic_role_painting = True
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile:
+                self._paint_strategic_role(tile)
+                self.last_strategic_role_painted_tile = tile
         
         # Click wird in mouse_up behandelt für saubere Trennung
     
@@ -146,7 +158,13 @@ class MapCanvas:
             if tile and tile != self.last_faction_painted_tile:
                 self._paint_faction(tile)
                 self.last_faction_painted_tile = tile
-        elif self.is_dragging and not self.is_painting and not self.is_faction_painting:
+        elif self.is_strategic_role_painting and self.strategic_role_paint_mode and self.selected_strategic_role:
+            # Strategic Role Paint Mode: Male strategische Rollen über alle Tiles
+            tile = self._get_tile_at_pixel(event.x, event.y)
+            if tile and tile != self.last_strategic_role_painted_tile:
+                self._paint_strategic_role(tile)
+                self.last_strategic_role_painted_tile = tile
+        elif self.is_dragging and not self.is_painting and not self.is_faction_painting and not self.is_strategic_role_painting:
             # Normal Pan-Mode
             dx = event.x - self.last_mouse_x
             dy = event.y - self.last_mouse_y
@@ -165,15 +183,18 @@ class MapCanvas:
         was_dragging = self.is_dragging
         was_painting = self.is_painting
         was_faction_painting = self.is_faction_painting
+        was_strategic_role_painting = self.is_strategic_role_painting
         
         self.is_dragging = False
         self.is_painting = False
         self.is_faction_painting = False
+        self.is_strategic_role_painting = False
         self.last_painted_tile = None
         self.last_faction_painted_tile = None
+        self.last_strategic_role_painted_tile = None
         
         # Wenn nicht gedragt und nicht gemalt wurde, als Click behandeln
-        if not was_dragging and not was_painting and not was_faction_painting:
+        if not was_dragging and not was_painting and not was_faction_painting and not was_strategic_role_painting:
             tile = self._get_tile_at_pixel(event.x, event.y)
             if tile and self.on_tile_click:
                 self.on_tile_click(tile)
@@ -398,25 +419,37 @@ class MapCanvas:
         # Strategic Role anzeigen (falls vorhanden)
         if hasattr(tile, 'strategic_role') and tile.strategic_role:
             role_text = ""
+            show_production = False
+            
             if tile.strategic_role.value == "firepower":
                 role_text = "F"
+                show_production = True
             elif tile.strategic_role.value == "mobility":
                 role_text = "M"
+                show_production = True
             elif tile.strategic_role.value == "intel":
                 role_text = "I"
+                show_production = True
             elif tile.strategic_role.value == "railway":
                 role_text = "H"
             elif tile.strategic_role.value == "logistic_hub":
                 role_text = "L"
-            elif tile.strategic_role.value == "HQ":
+            elif tile.strategic_role.value == "headquarter":
                 role_text = "Hq"
             
             if role_text and self.hex_size * self.zoom_factor > 10:
                 # Strategic Role Text zentriert anzeigen
                 font_size = max(8, min(16, int(self.hex_size * self.zoom_factor * 0.4)))
+                
+                # Für production-fähige Rollen: Zeige Rolle + Produktionswert
+                if show_production and hasattr(tile, 'production') and tile.production > 0:
+                    display_text = f"{role_text}{tile.production}"
+                else:
+                    display_text = role_text
+                
                 self.canvas.create_text(
                     screen_x, screen_y,
-                    text=role_text,
+                    text=display_text,
                     fill="white",
                     font=("Arial", font_size, "bold"),
                     tags=f"role_{hex_x}_{hex_y}"
@@ -500,6 +533,10 @@ class MapCanvas:
     def set_faction_paint_mode(self, enabled: bool):
         """Aktiviert oder deaktiviert Faction-Paint-Mode"""
         self.faction_paint_mode = enabled
+        
+    def set_strategic_role_paint_mode(self, enabled: bool):
+        """Aktiviert oder deaktiviert Strategic Role Paint Mode"""
+        self.strategic_role_paint_mode = enabled
         if not enabled:
             self.is_faction_painting = False
             self.last_faction_painted_tile = None
@@ -507,6 +544,10 @@ class MapCanvas:
     def set_selected_faction(self, faction):
         """Setzt die aktuell ausgewählte Fraktion für das Faction-Paint-Tool"""
         self.selected_faction = faction
+        
+    def set_selected_strategic_role(self, strategic_role):
+        """Setzt die aktuell ausgewählte strategische Rolle für das Strategic Role Paint Tool"""
+        self.selected_strategic_role = strategic_role
     
     def set_brush_size(self, size: int):
         """Setzt die Pinselgröße"""
@@ -569,6 +610,32 @@ class MapCanvas:
         if painted_tiles and self.on_faction_paint:
             first_tile, old_faction = painted_tiles[0]
             self.on_faction_paint(first_tile, old_faction)
+    
+    def _paint_strategic_role(self, tile: Tile):
+        """Malt ein Tile oder Brush Area mit der ausgewählten strategischen Rolle"""
+        if not self.selected_strategic_role:
+            return
+            
+        # Alle Tiles im Brush-Bereich finden
+        tiles_to_paint = self._get_tiles_in_brush(tile.coordinates[0], tile.coordinates[1])
+        painted_tiles = []
+        
+        for hex_x, hex_y in tiles_to_paint:
+            target_tile = self.grid_manager.get_tile_at(hex_x, hex_y)
+            if target_tile and target_tile.strategic_role != self.selected_strategic_role:
+                # Setze die neue strategische Rolle
+                old_strategic_role = target_tile.strategic_role
+                target_tile.strategic_role = self.selected_strategic_role
+                
+                painted_tiles.append((target_tile, old_strategic_role))
+                
+                # Einzelnes Hex neu zeichnen für sofortiges visuelles Feedback
+                self._render_single_hex(hex_x, hex_y, target_tile)
+        
+        # Callback für andere Komponenten (mit dem ersten Tile)
+        if painted_tiles and self.on_strategic_role_paint:
+            first_tile, old_strategic_role = painted_tiles[0]
+            self.on_strategic_role_paint(first_tile, old_strategic_role)
     
     def _render_single_hex(self, hex_x: int, hex_y: int, tile: Tile):
         """Rendert ein einzelnes Hex ohne komplettes Re-Render"""

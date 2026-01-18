@@ -27,7 +27,7 @@ class StrategicRoleType(Enum):
     INTEL = "intel"
     RAILWAY = "railway"
     LOGISTIC_HUB = "logistic_hub"
-    HQ = "HQ"
+    HEADQUARTER = "headquarter"
     NONE = "none"
 
 
@@ -47,6 +47,7 @@ class Tile:
     is_land: bool = True
     faction: FactionType = FactionType.NEUTRAL
     strategic_role: StrategicRoleType = StrategicRoleType.NONE
+    production: int = 0  # Produktion für firepower, intel, mobility
 
 
 @dataclass
