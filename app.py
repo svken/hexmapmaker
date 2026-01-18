@@ -27,7 +27,7 @@ class HexMapApplication:
         self.map_canvas = None
         self.main_window = None
         self.event_handlers = None
-        self.exporter = MapExporter(self.grid_manager)
+        self.exporter = None  # Wird nach Canvas-Erstellung initialisiert
         
         self._initialize_components()
         self._setup_callbacks()
@@ -53,6 +53,9 @@ class HexMapApplication:
                 self.grid_manager, 
                 self.map_canvas
             )
+            
+            # Exporter mit Canvas-Referenz erstellen
+            self.exporter = MapExporter(self.grid_manager, self.map_canvas)
     
     def _setup_callbacks(self):
         """Setzt Callbacks zwischen Komponenten"""

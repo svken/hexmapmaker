@@ -25,6 +25,9 @@ class StrategicRoleType(Enum):
     FIREPOWER = "firepower"
     MOBILITY = "mobility"
     INTEL = "intel"
+    RAILWAY = "railway"
+    LOGISTIC_HUB = "logistic_hub"
+    HQ = "HQ"
     NONE = "none"
 
 

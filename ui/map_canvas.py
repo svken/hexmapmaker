@@ -404,6 +404,12 @@ class MapCanvas:
                 role_text = "M"
             elif tile.strategic_role.value == "intel":
                 role_text = "I"
+            elif tile.strategic_role.value == "railway":
+                role_text = "H"
+            elif tile.strategic_role.value == "logistic_hub":
+                role_text = "L"
+            elif tile.strategic_role.value == "HQ":
+                role_text = "Hq"
             
             if role_text and self.hex_size * self.zoom_factor > 10:
                 # Strategic Role Text zentriert anzeigen
@@ -448,6 +454,13 @@ class MapCanvas:
         self.view_y = 0.0
         self.zoom_factor = 1.0
         self.hex_size = 15.0
+        
+    def set_hex_size(self, new_hex_size: float):
+        """Setzt die Hex-Größe für das Canvas"""
+        if self.min_hex_size <= new_hex_size <= self.max_hex_size:
+            self.hex_size = new_hex_size
+            # Optional: View neu rendern um die Änderung sofort zu zeigen
+            self.render_map()
         self.render_map()
     
     def center_on_grid(self):

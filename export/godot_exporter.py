@@ -10,8 +10,9 @@ from data.grid_manager import GridManager
 class MapExporter:
     """Exportiert Hex-Karten als JSON Dateien"""
     
-    def __init__(self, grid_manager: GridManager):
+    def __init__(self, grid_manager: GridManager, map_canvas=None):
         self.grid_manager = grid_manager
+        self.map_canvas = map_canvas
     
     def export_map(self):
         """Exportiert die Karte als JSON Datei"""
@@ -62,8 +63,18 @@ class MapExporter:
             tile_data = self._extract_tile_data(tile)
             map_data.append(tile_data)
         
-        # Erstelle das finale JSON-Objekt
+        # Canvas-Einstellungen sammeln
+        canvas_settings = {"hex_size": 15.0}  # Default
+        if self.map_canvas and hasattr(self.map_canvas, 'hex_size'):
+            canvas_settings["hex_size"] = self.map_canvas.hex_size
+        
+        # Erstelle das finale JSON-Objekt mit Metadaten
         json_data = {
+            "metadata": {
+                "grid_width": grid.width,
+                "grid_height": grid.height,
+                "canvas_settings": canvas_settings
+            },
             "map": map_data
         }
         
@@ -113,6 +124,26 @@ class MapExporter:
         
         if "map" not in json_data:
             raise ValueError("JSON file must contain a 'map' array")
+        
+        # Lade Metadaten falls vorhanden
+        if "metadata" in json_data:
+            metadata = json_data["metadata"]
+            
+            # Grid-Größe anpassen falls nötig
+            if "grid_width" in metadata and "grid_height" in metadata:
+                new_width = metadata["grid_width"]
+                new_height = metadata["grid_height"]
+                
+                # Grid neu erstellen falls Größe sich geändert hat
+                current_grid = self.grid_manager.grid
+                if current_grid.width != new_width or current_grid.height != new_height:
+                    self.grid_manager.create_new_grid(new_width, new_height)
+            
+            # Canvas-Einstellungen anwenden
+            if "canvas_settings" in metadata and self.map_canvas:
+                canvas_settings = metadata["canvas_settings"]
+                if "hex_size" in canvas_settings:
+                    self.map_canvas.set_hex_size(canvas_settings["hex_size"])
         
         map_data = json_data["map"]
         grid = self.grid_manager.grid
