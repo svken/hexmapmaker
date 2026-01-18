@@ -395,10 +395,31 @@ class MapCanvas:
                 tags=f"faction_{hex_x}_{hex_y}"
             )
         
-        # Koordinaten anzeigen (nur bei großen Hexagonen)
-        if self.hex_size * self.zoom_factor > 20:
+        # Strategic Role anzeigen (falls vorhanden)
+        if hasattr(tile, 'strategic_role') and tile.strategic_role:
+            role_text = ""
+            if tile.strategic_role.value == "firepower":
+                role_text = "F"
+            elif tile.strategic_role.value == "mobility":
+                role_text = "M"
+            elif tile.strategic_role.value == "intel":
+                role_text = "I"
+            
+            if role_text and self.hex_size * self.zoom_factor > 10:
+                # Strategic Role Text zentriert anzeigen
+                font_size = max(8, min(16, int(self.hex_size * self.zoom_factor * 0.4)))
+                self.canvas.create_text(
+                    screen_x, screen_y,
+                    text=role_text,
+                    fill="white",
+                    font=("Arial", font_size, "bold"),
+                    tags=f"role_{hex_x}_{hex_y}"
+                )
+        
+        # Koordinaten anzeigen (nur bei sehr großen Hexagonen und wenn keine Strategic Role)
+        elif self.hex_size * self.zoom_factor > 25:
             self.canvas.create_text(
-                screen_x, screen_y,
+                screen_x, screen_y + self.hex_size * self.zoom_factor * 0.3,
                 text=f"{hex_x},{hex_y}",
                 fill="black",
                 font=("Arial", 8)
@@ -538,9 +559,10 @@ class MapCanvas:
     
     def _render_single_hex(self, hex_x: int, hex_y: int, tile: Tile):
         """Rendert ein einzelnes Hex ohne komplettes Re-Render"""
-        # Lösche altes Hex und Faction-Rahmen
+        # Lösche altes Hex, Faction-Rahmen und Role-Text
         self.canvas.delete(f"hex_{hex_x}_{hex_y}")
         self.canvas.delete(f"faction_{hex_x}_{hex_y}")
+        self.canvas.delete(f"role_{hex_x}_{hex_y}")
         
         # Zeichne neues Hex
         self._render_hex(hex_x, hex_y, tile)
